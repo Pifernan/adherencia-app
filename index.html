@@ -714,10 +714,7 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         dxf_subidos = list(dxf_dict_bytes.keys())
         coinciden = [k for k in mapeo.keys() if k in dxf_dict_bytes]
         fechas_ok = [k for k in mapeo.keys() if k in dxf_dict_bytes and fecha_desde_nombre(k) is not None and fecha_desde_nombre(k) <= fecha_limite]
-        msg = (f"No se encontraron poligonos.\n"
-               f"DXF subidos: {dxf_subidos}\n"
-               f"Coinciden con mapeo: {coinciden}\n"
-               f"Pasan filtro de fecha ({fecha_limite.date()}): {fechas_ok}")
+        msg = "No se encontraron poligonos. DXF subidos: " + str(dxf_subidos) + " | Coinciden mapeo: " + str(coinciden) + " | Pasan fecha " + str(fecha_limite.date()) + ": " + str(fechas_ok)
         return None, msg
 
     polygons = pd.DataFrame(rows)
