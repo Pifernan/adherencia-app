@@ -7,9 +7,9 @@
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <style>
   :root {
-    --bg:#0f1117; --surface:#1a1d27; --border:#2a2d3a;
-    --accent:#e8a838; --accent2:#4fc3a1; --text:#e4e6f0;
-    --muted:#7a7f99; --danger:#e05c5c; --radius:6px;
+    --bg:#f5f5f5; --surface:#ffffff; --border:#e0e0e0;
+    --accent:#1a73e8; --accent2:#34a853; --text:#212121;
+    --muted:#757575; --danger:#e53935; --radius:6px;
     --mono:'JetBrains Mono','Fira Code',monospace;
     --sans:'Inter',system-ui,sans-serif;
   }
@@ -331,7 +331,7 @@ function renderPlot(data) {
     xaxis:{visible:false,scaleanchor:'y'}, yaxis:{visible:false},
     legend:{bgcolor:'#0f1117',bordercolor:'#2a2d3a',borderwidth:1,font:{color:'#e4e6f0',size:11}},
     margin:{t:48,r:20,b:20,l:20},
-  }, {responsive:true, displayModeBar:false});
+  }, {responsive:true, displayModeBar:true, modeBarButtonsToRemove: ['toImage','sendDataToCloud','editInChartStudio','zoom2d','pan2d','select2d','lasso2d','zoomIn2d','zoomOut2d'], displaylogo:false});
 }
 </script>
 </body>
