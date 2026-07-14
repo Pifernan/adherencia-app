@@ -347,10 +347,10 @@
 
         <div>
           <div class="drop-zone" id="zone-dxf">
-            <input type="file" id="input-dxf" accept=".dxf" multiple />
-            <div class="drop-icon">🗺️</div>
-            <div class="drop-label">Archivos EOP DXF</div>
-            <div class="drop-hint">Solo archivos EOP diarios (selección múltiple)</div>
+            <input type="file" id="input-dxf" accept=".json" />
+            <div class="drop-icon">📦</div>
+            <div class="drop-label">Polígonos pre-procesados</div>
+            <div class="drop-hint">poligonos.json (generado con dxf_a_json.py)</div>
           </div>
           <div class="file-list" id="list-dxf"></div>
         </div>
@@ -373,36 +373,8 @@
     </div>
   </div>
 
-  <!-- PASO 3: MAPEO -->
-  <div class="card">
-    <div class="card-header">
-      <div class="step-num">3</div>
-      <h2>Mapeo polígonos → pala</h2>
-    </div>
-    <div class="card-body">
-      <p class="mapeo-hint">
-        Edita el JSON para asignar cada índice de polígono dentro de cada archivo DXF a su pala y fase.
-        El nombre del archivo debe coincidir exactamente con el DXF subido.
-      </p>
-      <textarea id="mapeo-json">{
-  "EOP_1_10__7_1_2026__SURF.dxf": {
-    "1": {"pala": "S06", "fase": "F06"},
-    "2": {"pala": "S01", "fase": "F06"},
-    "3": {"pala": "SH02", "fase": "F07"},
-    "4": {"pala": "S02", "fase": "F07"}
-  },
-  "EOP_1_11__7_1_2026_1__SURF.dxf": {
-    "1": {"pala": "S06", "fase": "F06"},
-    "2": {"pala": "S01", "fase": "F06"},
-    "3": {"pala": "SH01", "fase": "F07"},
-    "4": {"pala": "SH02", "fase": "F07"},
-    "5": {"pala": "S02", "fase": "F07"}
-  }
-}</textarea>
-    </div>
-  </div>
 
-  <!-- BOTÓN -->
+  <!-- BOTÓN -->  <!-- BOTÓN -->
   <div style="display:flex;align-items:center;gap:16px;">
     <button class="run-btn" id="btn-run" disabled>
       <span id="btn-icon">▶</span>
@@ -503,9 +475,9 @@ function refreshCsvList() {
 function refreshDxfList() {
   const el = document.getElementById('list-dxf');
   el.innerHTML = '';
-  Object.keys(dxfFiles).forEach(name => {
-    el.innerHTML += `<div class="file-pill"><span class="dot"></span>${name}</div>`;
-  });
+  if (dxfFiles['poligonos']) {
+    el.innerHTML = `<div class="file-pill"><span class="dot"></span>${dxfFiles['poligonos'].name}</div>`;
+  }
   checkReady();
 }
 
@@ -538,8 +510,7 @@ document.getElementById('input-csv').addEventListener('change', e => {
 });
 
 document.getElementById('input-dxf').addEventListener('change', e => {
-  Array.from(e.target.files).forEach(f => { dxfFiles[f.name] = f; });
-  refreshDxfList();
+  if (e.target.files[0]) { dxfFiles['poligonos'] = e.target.files[0]; refreshDxfList(); }
 });
 
 ['zone-csv','zone-dxf'].forEach(id => {
@@ -553,7 +524,8 @@ document.getElementById('input-dxf').addEventListener('change', e => {
       const f = files.find(f => f.name.endsWith('.csv'));
       if (f) { csvFile = f; refreshCsvList(); }
     } else {
-      files.filter(f => f.name.endsWith('.dxf')).forEach(f => { dxfFiles[f.name] = f; });
+      const f = files.find(f => f.name.endsWith('.json') && !f.name.includes('rajo'));
+      if (f) { dxfFiles['poligonos'] = f; }
       refreshDxfList();
     }
   });
@@ -604,24 +576,16 @@ const PYTHON_CODE = `
 import numpy as np
 import pandas as pd
 import math, io, re, json
-import ezdxf
-
-def log(msg):
-    print('[LOG]', msg)
 import shapely
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
 from pyproj import Transformer
 import matplotlib.colors as mcolors
 
-# ── helpers ──────────────────────────────────────────────────────────────────
-def cerrar_poligono_robusto(vertices, tol=0.05):
-    if len(vertices) < 3: return None
-    coords = [(v[0], v[1]) for v in vertices]
-    p0, pN = np.array(coords[0]), np.array(coords[-1])
-    if np.linalg.norm(p0 - pN) > tol: coords.append(coords[0])
-    return coords
+def log(msg):
+    print('[LOG]', msg)
 
+# ── helpers ───────────────────────────────────────────────────────────────────
 def construir_geometria(lista_vertices):
     polys = []
     for verts in lista_vertices:
@@ -631,13 +595,21 @@ def construir_geometria(lista_vertices):
         if not p.is_empty: polys.append(p)
     return unary_union(polys) if polys else None
 
-def construir_solidos(df):
+def construir_solidos(poligonos, fecha_limite):
     solidos = {}
-    for pala, grupo in df.groupby('pala'):
-        geom = construir_geometria(list(grupo['vertices']))
+    for pol in poligonos:
+        if pd.Timestamp(pol['fecha']) > fecha_limite: continue
+        pala = pol['pala']
+        if pala not in solidos:
+            solidos[pala] = {'vertices': [], 'n_poligonos': 0}
+        solidos[pala]['vertices'].append(pol['vertices'])
+        solidos[pala]['n_poligonos'] += 1
+    resultado = {}
+    for pala, data in solidos.items():
+        geom = construir_geometria(data['vertices'])
         if geom and not geom.is_empty:
-            solidos[pala] = {'geom': geom, 'n_poligonos': len(grupo)}
-    return solidos
+            resultado[pala] = {'geom': geom, 'n_poligonos': data['n_poligonos']}
+    return resultado
 
 def calcular_adherencia(geometria, xy, buffer_m=5.0):
     xy = np.asarray(xy, dtype=float)
@@ -646,15 +618,6 @@ def calcular_adherencia(geometria, xy, buffer_m=5.0):
     x, y = xy[:, 0], xy[:, 1]
     dentro = shapely.covers(geometria, shapely.points(x, y))
     return 100.0 * dentro.sum() / len(xy)
-
-def fecha_desde_nombre(nombre):
-    m = re.search(r'__(\\d+)_(\\d+)_(\\d+)(?:_\\d+)?__SURF', nombre)
-    if not m: return None
-    mes, dia, anio = int(m.group(1)), int(m.group(2)), int(m.group(3))
-    return pd.Timestamp(year=anio, month=mes, day=dia)
-
-def _read_dxf(raw_bytes):
-    return ezdxf.read(io.TextIOWrapper(io.BytesIO(bytes(raw_bytes)), encoding='utf-8', errors='replace'))
 
 def _anillos(geom):
     if not geom or geom.is_empty: return []
@@ -665,31 +628,12 @@ def _anillos(geom):
         for h in poly.interiors: out.append(np.array(h.coords))
     return out
 
-def oscurecer(hex_color, factor=0.6):
-    r, g, b = mcolors.hex2color(hex_color)
-    return mcolors.rgb2hex((r*factor, g*factor, b*factor))
-
 # ── main function ─────────────────────────────────────────────────────────────
-def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
-                 topo_json_str=None, buffer_m=5.0, angulo=-45):
+def run_analysis(csv_bytes, poligonos_json_str, topo_json_str, fecha_str,
+                 buffer_m=5.0, angulo=-45):
 
-    fecha_limite = pd.Timestamp(fecha_str)
-    mapeo = {k: {int(i): v for i, v in vmap.items()}
-             for k, vmap in json.loads(mapeo_json_str).items()}
-
-    # ── topografía desde JSON ─────────────────────────────────────────────────
     CX, CY = 409716.0, 7496728.0
-    segs_raw = []
-    if topo_json_str:
-        topo_data = json.loads(topo_json_str)
-        lineas = topo_data.get('lineas', [])
-        ang_inv = math.radians(angulo)
-        cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
-        for linea in lineas:
-            pts = np.array(linea, dtype=float)
-            x_utm = CX + pts[:,0]*cos_a - pts[:,1]*sin_a
-            y_utm = CY + pts[:,0]*sin_a + pts[:,1]*cos_a
-            segs_raw.append(np.column_stack([x_utm, y_utm]))
+    fecha_limite = pd.Timestamp(fecha_str)
 
     def rotar(pts):
         arr = np.array(pts)
@@ -700,56 +644,47 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
             CY + dx*math.sin(rad) + dy*math.cos(rad)
         ])
 
-    # ── polígonos DXF ─────────────────────────────────────────────────────────
-    rows = []
-    archivos_a_procesar = [(n, m) for n, m in mapeo.items()
-                           if fecha_desde_nombre(n) is not None
-                           and fecha_desde_nombre(n) <= fecha_limite
-                           and n in dxf_dict_bytes]
-    log(f"Archivos DXF a procesar: {len(archivos_a_procesar)}")
-    for i, (nombre, m_local) in enumerate(archivos_a_procesar):
-        log(f"  [{i+1}/{len(archivos_a_procesar)}] Leyendo {nombre}...")
-        doc = _read_dxf(dxf_dict_bytes[nombre])
-        todos = []
-        for e in doc.modelspace():
-            if e.dxftype() == 'POLYLINE':
-                pts = [(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
-                if len(pts) >= 2:
-                    todos.append({'pts': pts, 'idx': len(todos)+1})
-        n_rows_antes = len(rows)
-        for p in todos:
-            if p['idx'] not in m_local: continue
-            asig = m_local[p['idx']]
-            verts = cerrar_poligono_robusto(p['pts'])
-            if verts: rows.append({'pala': asig['pala'], 'fase': asig['fase'], 'vertices': verts})
-        log(f"    → {len(rows)-n_rows_antes} polígonos extraídos")
+    # ── topografía desde JSON ─────────────────────────────────────────────────
+    segs_raw = []
+    if topo_json_str:
+        topo_data = json.loads(topo_json_str)
+        ang_inv = math.radians(angulo)
+        cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
+        for linea in topo_data.get('lineas', []):
+            pts = np.array(linea, dtype=float)
+            x_utm = CX + pts[:,0]*cos_a - pts[:,1]*sin_a
+            y_utm = CY + pts[:,0]*sin_a + pts[:,1]*cos_a
+            segs_raw.append(np.column_stack([x_utm, y_utm]))
+        log(f"Topografia: {len(segs_raw)} segmentos cargados")
 
-    if not rows:
-        dxf_subidos = list(dxf_dict_bytes.keys())
-        coinciden = [k for k in mapeo.keys() if k in dxf_dict_bytes]
-        fechas_ok = [k for k in mapeo.keys() if k in dxf_dict_bytes and fecha_desde_nombre(k) is not None and fecha_desde_nombre(k) <= fecha_limite]
-        msg = "No se encontraron poligonos. DXF subidos: " + str(dxf_subidos) + " | Coinciden mapeo: " + str(coinciden) + " | Pasan fecha " + str(fecha_limite.date()) + ": " + str(fechas_ok)
-        return None, msg
+    # ── polígonos desde JSON ──────────────────────────────────────────────────
+    log("Cargando poligonos pre-procesados...")
+    data = json.loads(poligonos_json_str)
+    poligonos = data['poligonos']
+    log(f"Total poligonos en JSON: {len(poligonos)}")
 
-    log(f'Construyendo solidos acumulados desde {len(rows)} poligonos...')
-    polygons = pd.DataFrame(rows)
-    solidos  = construir_solidos(polygons)
-    log(f'Solidos construidos: {list(solidos.keys())}')
+    log(f"Construyendo solidos acumulados hasta {fecha_str}...")
+    solidos = construir_solidos(poligonos, fecha_limite)
+    log(f"Solidos construidos: {list(solidos.keys())}")
+
+    if not solidos:
+        return None, "No se encontraron poligonos para la fecha dada."
 
     # ── puntos CSV ────────────────────────────────────────────────────────────
-    log('Leyendo CSV de puntos de carguio...')
+    log("Leyendo CSV de puntos de carguio...")
     puntos = pd.read_csv(io.BytesIO(bytes(csv_bytes)), sep=';')
     puntos = puntos[puntos['longitude'].notna() & puntos['latitude'].notna()].copy()
+    log(f"Puntos CSV: {len(puntos)} filas")
 
     puntos['lon_wgs84'] = puntos['longitude'] / 3_600_000
     puntos['lat_wgs84'] = puntos['latitude']  / 3_600_000
-    log('Transformando coordenadas WGS84 -> UTM PSAD56...')
+    log("Transformando coordenadas WGS84 -> UTM PSAD56...")
     t = Transformer.from_crs(4326, 24879, always_xy=True)
     puntos['x'], puntos['y'] = t.transform(puntos['lon_wgs84'].values, puntos['lat_wgs84'].values)
 
     puntos['time_tripped'] = pd.to_datetime(puntos['time_tripped'])
     puntos['time_tripped'] = puntos['time_tripped'].dt.tz_localize('UTC').dt.tz_convert('America/Santiago')
-    hora  = puntos['time_tripped'].dt.hour
+    hora      = puntos['time_tripped'].dt.hour
     fecha_col = puntos['time_tripped'].dt.date
 
     puntos['date_op'] = np.select(
@@ -757,7 +692,8 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         [fecha_col - pd.Timedelta(days=1), fecha_col, fecha_col], default=pd.NaT)
     puntos['turno'] = np.select([hora < 8,(hora>=8)&(hora<20),hora>=20],['B','A','B'],default=None)
     puntos['date_op'] = pd.to_datetime(puntos['date_op'])
-    puntos = puntos.rename(columns={'elevation':'z'})
+    if 'elevation' in puntos.columns:
+        puntos = puntos.rename(columns={'elevation':'z'})
     puntos['fase'] = 'F0' + puntos['fase'].str.extract(r'FASE\\s*(\\d)', expand=False).fillna('')
     puntos = puntos[puntos['shovel'] != 'L01'].copy()
 
@@ -770,24 +706,26 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         (puntos['date_op'] >= fecha_limite) &
         (puntos['date_op'] <= fecha_limite)
     ].reset_index(drop=True)
+    log(f"Puntos limpios: {len(puntos_clean)}")
 
-    log(f'Puntos limpios: {len(puntos_clean)}. Calculando adherencia...')
     # ── adherencia ────────────────────────────────────────────────────────────
+    log("Calculando adherencia...")
     resultados = []
     for pala, item in solidos.items():
         sub = puntos_clean[puntos_clean['shovel'] == pala]
         adh = calcular_adherencia(item['geom'], sub[['x','y']].to_numpy(), buffer_m=buffer_m)
         resultados.append({'pala': pala, 'n_poligonos': item['n_poligonos'],
                            'n_puntos': len(sub), 'adherencia': round(adh, 1)})
+        log(f"  {pala}: {len(sub)} puntos -> {round(adh,1)}%")
 
-    log('Preparando visualizacion...')
     df_res = pd.DataFrame(resultados).sort_values('pala').reset_index(drop=True)
 
     # ── datos para gráfico ────────────────────────────────────────────────────
-    palas_lista = sorted(set(polygons['pala']) | set(puntos_clean['shovel'].dropna()))
+    log("Preparando visualizacion...")
+    palas_lista = sorted(set(s['pala'] for s in solidos.values() if True) | set(puntos_clean['shovel'].dropna()))
     _tab10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
                '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf']
-    color_pala = {p: _tab10[i%10] for i,p in enumerate(palas_lista)}
+    color_pala = {p: _tab10[i%10] for i,p in enumerate(sorted(palas_lista))}
 
     topo_segs = []
     for seg in segs_raw:
@@ -804,7 +742,7 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         solidos_plot.append({'pala': pala, 'xs': xs, 'ys': ys, 'color': color_pala.get(pala,'#888')})
 
     puntos_plot = []
-    for pala in palas_lista:
+    for pala in sorted(palas_lista):
         sub = puntos_clean[puntos_clean['shovel'] == pala]
         if sub.empty: continue
         pts_r = rotar(sub[['x','y']].to_numpy())
@@ -818,9 +756,10 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         'puntos': puntos_plot,
         'buffer_m': buffer_m,
         'fecha': fecha_str,
-        'n_poligonos_total': len(rows),
+        'n_poligonos_total': sum(s['n_poligonos'] for s in solidos.values()),
         'n_puntos_total': len(puntos_clean),
     }
+    log("Listo!")
     return json.dumps(resultado_final), None
 `;
 
@@ -832,48 +771,21 @@ document.getElementById('btn-run').addEventListener('click', async () => {
 
   try {
     const fecha = document.getElementById('fecha-input').value;
-    let mapeoStr;
-    try {
-      const parsed = JSON.parse(document.getElementById('mapeo-json').value);
-      mapeoStr = JSON.stringify(parsed);
-    } catch(e) {
-      addLog('✗ JSON del mapeo inválido: ' + e.message, 'err');
-      setBtn(false); return;
-    }
-
     // Read topo JSON if provided
     let topoJsonStr = '';
     if (topoJsonFile) {
       topoJsonStr = await topoJsonFile.text();
     }
 
-    addLog(`▸ Leyendo ${Object.keys(dxfFiles).length} DXF y el CSV…`, 'warn');
+    addLog('▸ Leyendo archivos…', 'warn');
 
-    // Read files as bytes
     const csvBytes = new Uint8Array(await csvFile.arrayBuffer());
-    const dxfBytesMap = {};
-    for (const [name, file] of Object.entries(dxfFiles)) {
-      dxfBytesMap[name] = new Uint8Array(await file.arrayBuffer());
-    }
+    const poligonosStr = await dxfFiles['poligonos'].text();
 
-    // Transfer to Pyodide
     pyodide.globals.set('_csv_bytes', csvBytes);
-    pyodide.globals.set('_dxf_names', Object.keys(dxfBytesMap));
-    for (const [name, bytes] of Object.entries(dxfBytesMap)) {
-      pyodide.globals.set('_dxf_tmp_' + name.replace(/[^a-zA-Z0-9]/g,'_'), bytes);
-    }
-
-    // Build dxf_dict in Python
-    await pyodide.runPythonAsync(`
-_dxf_dict = {}
-for _n in _dxf_names:
-    _key = '_dxf_tmp_' + ''.join(c if c.isalnum() else '_' for c in _n)
-    _dxf_dict[_n] = globals()[_key]
-`);
-
-    pyodide.globals.set('_mapeo_json', mapeoStr);
-    pyodide.globals.set('_fecha', fecha);
+    pyodide.globals.set('_poligonos_json', poligonosStr);
     pyodide.globals.set('_topo_json', topoJsonStr);
+    pyodide.globals.set('_fecha', fecha);
 
     addLog('▸ Ejecutando análisis en Python…', 'warn');
 
@@ -881,13 +793,12 @@ for _n in _dxf_names:
 
     const result = await pyodide.runPythonAsync(`
 run_analysis(
-    csv_bytes      = _csv_bytes,
-    dxf_dict_bytes = _dxf_dict,
-    mapeo_json_str = _mapeo_json,
-    fecha_str      = _fecha,
-    topo_json_str  = _topo_json if _topo_json else None,
-    buffer_m       = 5.0,
-    angulo         = -45
+    csv_bytes          = _csv_bytes,
+    poligonos_json_str = _poligonos_json,
+    topo_json_str      = _topo_json if _topo_json else None,
+    fecha_str          = _fecha,
+    buffer_m           = 5.0,
+    angulo             = -45
 )
 `);
 
