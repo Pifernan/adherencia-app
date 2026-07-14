@@ -638,13 +638,14 @@ def calcular_adherencia(geometria, xy, buffer_m=5.0):
     dentro = shapely.covers(geometria, shapely.points(x, y))
     return 100.0 * dentro.sum() / len(xy)
 
-import io as _io
-def _read_dxf(raw_bytes):
-    return ezdxf.read(_io.TextIOWrapper(_io.BytesIO(bytes(raw_bytes)), encoding='utf-8', errors='replace'))
-    m = re.search(r'__(\\d+)_(\\d+)_(\\d+)(?:_\\d+)?__SURF', nombre)
+def fecha_desde_nombre(nombre):
+    m = re.search(r'__(\d+)_(\d+)_(\d+)(?:_\d+)?__SURF', nombre)
     if not m: return None
     mes, dia, anio = int(m.group(1)), int(m.group(2)), int(m.group(3))
     return pd.Timestamp(year=anio, month=mes, day=dia)
+
+def _read_dxf(raw_bytes):
+    return ezdxf.read(io.TextIOWrapper(io.BytesIO(bytes(raw_bytes)), encoding='utf-8', errors='replace'))
 
 def _anillos(geom):
     if not geom or geom.is_empty: return []
@@ -667,31 +668,27 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
     mapeo = {k: {int(i): v for i, v in vmap.items()}
              for k, vmap in json.loads(mapeo_json_str).items()}
 
-# ── topografía desde JSON ─────────────────────────────────────────────────────
+    # ── topografía desde JSON ─────────────────────────────────────────────────
     CX, CY = 409716.0, 7496728.0
-    ANGULO  = -45
-
     segs_raw = []
     if topo_json_str:
         topo_data = json.loads(topo_json_str)
         lineas = topo_data.get('lineas', [])
-        ang_inv = math.radians(-ANGULO)
+        ang_inv = math.radians(angulo)
         cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
         for linea in lineas:
             pts = np.array(linea, dtype=float)
-            # invertir rotación: coordenadas relativas → UTM real
             x_utm = CX + pts[:,0]*cos_a - pts[:,1]*sin_a
             y_utm = CY + pts[:,0]*sin_a + pts[:,1]*cos_a
             segs_raw.append(np.column_stack([x_utm, y_utm]))
 
-    def rotar(pts, cx=CX, cy=CY):
-        if cx is None: return np.array(pts)
+    def rotar(pts):
         arr = np.array(pts)
         rad = math.radians(angulo)
-        dx, dy = arr[:,0]-cx, arr[:,1]-cy
+        dx, dy = arr[:,0]-CX, arr[:,1]-CY
         return np.column_stack([
-            cx + dx*math.cos(rad) - dy*math.sin(rad),
-            cy + dx*math.sin(rad) + dy*math.cos(rad)
+            CX + dx*math.cos(rad) - dy*math.sin(rad),
+            CY + dx*math.sin(rad) + dy*math.cos(rad)
         ])
 
     # ── polígonos DXF ─────────────────────────────────────────────────────────
@@ -731,18 +728,17 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
     puntos['time_tripped'] = pd.to_datetime(puntos['time_tripped'])
     puntos['time_tripped'] = puntos['time_tripped'].dt.tz_localize('UTC').dt.tz_convert('America/Santiago')
     hora  = puntos['time_tripped'].dt.hour
-    fecha = puntos['time_tripped'].dt.date
+    fecha_col = puntos['time_tripped'].dt.date
 
     puntos['date_op'] = np.select(
         [hora < 8, (hora >= 8)&(hora < 20), hora >= 20],
-        [fecha - pd.Timedelta(days=1), fecha, fecha], default=pd.NaT)
+        [fecha_col - pd.Timedelta(days=1), fecha_col, fecha_col], default=pd.NaT)
     puntos['turno'] = np.select([hora < 8,(hora>=8)&(hora<20),hora>=20],['B','A','B'],default=None)
     puntos['date_op'] = pd.to_datetime(puntos['date_op'])
     puntos = puntos.rename(columns={'elevation':'z'})
-    puntos['fase'] = 'F0' + puntos['fase'].str.extract(r'FASE\\s*(\\d)', expand=False).fillna('')
+    puntos['fase'] = 'F0' + puntos['fase'].str.extract(r'FASE\s*(\d)', expand=False).fillna('')
     puntos = puntos[puntos['shovel'] != 'L01'].copy()
 
-    # outliers SH02
     if 'SH01' in puntos['shovel'].values and 'SH02' in puntos['shovel'].values:
         sh01_y_min = puntos[puntos['shovel']=='SH01']['y'].min()
         mask = (puntos['shovel']=='SH02') & (puntos['y'] > sh01_y_min)
@@ -801,8 +797,7 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         'n_poligonos_total': len(rows),
         'n_puntos_total': len(puntos_clean),
     }
-    import json as _json
-    return _json.dumps(resultado_final), None
+    return json.dumps(resultado_final), None
 `;
 
 // ─── Run button ───────────────────────────────────────────────────────────────
