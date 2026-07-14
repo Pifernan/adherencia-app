@@ -1,413 +1,153 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Adherencia de Excavación — Antucoya</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Adherencia de Excavación</title>
 <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
 <style>
   :root {
-    --bg:       #0f1117;
-    --surface:  #1a1d27;
-    --border:   #2a2d3a;
-    --accent:   #e8a838;
-    --accent2:  #4fc3a1;
-    --text:     #e4e6f0;
-    --muted:    #7a7f99;
-    --danger:   #e05c5c;
-    --radius:   6px;
-    --mono:     'JetBrains Mono', 'Fira Code', monospace;
-    --sans:     'Inter', system-ui, sans-serif;
+    --bg:#0f1117; --surface:#1a1d27; --border:#2a2d3a;
+    --accent:#e8a838; --accent2:#4fc3a1; --text:#e4e6f0;
+    --muted:#7a7f99; --danger:#e05c5c; --radius:6px;
+    --mono:'JetBrains Mono','Fira Code',monospace;
+    --sans:'Inter',system-ui,sans-serif;
   }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 14px;
-    min-height: 100vh;
-  }
-
-  header {
-    border-bottom: 1px solid var(--border);
-    padding: 18px 32px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .logo-mark {
-    width: 32px; height: 32px;
-    background: var(--accent);
-    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-    flex-shrink: 0;
-  }
-
-  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
-  header p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
-
-  .tag {
-    margin-left: auto;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 99px;
-    padding: 3px 10px;
-    font-size: 11px;
-    color: var(--muted);
-    font-family: var(--mono);
-  }
-
-  main {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 32px 32px 64px;
-    display: flex;
-    flex-direction: column;
-    gap: 28px;
-  }
-
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-  }
-
-  .card-header {
-    padding: 14px 20px;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .step-num {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    border: 1.5px solid var(--accent);
-    color: var(--accent);
-    font-size: 11px;
-    font-weight: 700;
-    display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-    font-family: var(--mono);
-  }
-
-  .card-header h2 { font-size: 13px; font-weight: 600; }
-
-  .card-body { padding: 20px; }
-
-  /* Fecha */
-  .fecha-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-
-  .fecha-row label { color: var(--muted); font-size: 12px; white-space: nowrap; }
-
-  input[type="date"] {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    padding: 7px 12px;
-    font-size: 13px;
-    font-family: var(--mono);
-    outline: none;
-  }
-  input[type="date"]:focus { border-color: var(--accent); }
-
-  /* Upload zones */
-  .upload-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-
-  .drop-zone {
-    border: 1.5px dashed var(--border);
-    border-radius: var(--radius);
-    padding: 24px 16px;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    position: relative;
-  }
-
-  .drop-zone:hover, .drop-zone.drag-over {
-    border-color: var(--accent);
-    background: rgba(232, 168, 56, 0.04);
-  }
-
-  .drop-zone input[type="file"] {
-    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
-  }
-
-  .drop-icon { font-size: 28px; margin-bottom: 8px; }
-  .drop-label { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
-  .drop-hint  { font-size: 11px; color: var(--muted); }
-
-  .file-list {
-    margin-top: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    text-align: left;
-  }
-
-  .file-pill {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 11px;
-    font-family: var(--mono);
-    color: var(--accent2);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .file-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
-
-  /* Mapeo */
-  .mapeo-hint {
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 14px;
-    line-height: 1.5;
-  }
-
-  textarea#mapeo-json {
-    width: 100%;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 12px;
-    padding: 12px;
-    resize: vertical;
-    min-height: 180px;
-    outline: none;
-    line-height: 1.55;
-  }
-  textarea#mapeo-json:focus { border-color: var(--accent); }
-
-  /* Botón */
-  .run-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--accent);
-    color: #0f1117;
-    border: none;
-    border-radius: var(--radius);
-    padding: 11px 24px;
-    font-size: 13px;
-    font-weight: 700;
-    cursor: pointer;
-    transition: opacity 0.15s;
-    font-family: var(--sans);
-  }
-  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-  .run-btn:not(:disabled):hover { opacity: 0.88; }
-
-  /* Log */
-  #log {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px;
-    font-family: var(--mono);
-    font-size: 12px;
-    line-height: 1.7;
-    min-height: 60px;
-    max-height: 220px;
-    overflow-y: auto;
-    color: var(--muted);
-  }
-  #log .ok   { color: var(--accent2); }
-  #log .warn { color: var(--accent); }
-  #log .err  { color: var(--danger); }
-
-  /* Tabla resultados */
-  .results-wrap { overflow-x: auto; }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
-  thead th {
-    text-align: left;
-    padding: 9px 14px;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    color: var(--muted);
-    border-bottom: 1px solid var(--border);
-  }
-
-  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
-  tbody tr:last-child { border-bottom: none; }
-  tbody tr:hover { background: rgba(255,255,255,0.02); }
-
-  tbody td {
-    padding: 10px 14px;
-    font-family: var(--mono);
-  }
-
-  .pala-badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 99px;
-    font-size: 11px;
-    font-weight: 700;
-    border: 1px solid currentColor;
-  }
-
-  .adh-bar-wrap { display: flex; align-items: center; gap: 10px; }
-  .adh-bar {
-    height: 6px;
-    border-radius: 99px;
-    background: var(--border);
-    flex: 1;
-    overflow: hidden;
-  }
-  .adh-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-
-  #plot-container {
-    border-radius: var(--radius);
-    overflow: hidden;
-  }
-
-  .hidden { display: none !important; }
-
-  /* Spinner */
-  @keyframes spin { to { transform: rotate(360deg); } }
-  .spinner {
-    width: 16px; height: 16px;
-    border: 2px solid rgba(15,17,23,0.3);
-    border-top-color: #0f1117;
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
-    flex-shrink: 0;
-  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
+  header{border-bottom:1px solid var(--border);padding:18px 32px;display:flex;align-items:center;gap:14px}
+  .logo{width:32px;height:32px;background:var(--accent);clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);flex-shrink:0}
+  header h1{font-size:15px;font-weight:600}
+  header p{font-size:12px;color:var(--muted);margin-top:2px}
+  .tag{margin-left:auto;background:var(--surface);border:1px solid var(--border);border-radius:99px;padding:3px 10px;font-size:11px;color:var(--muted);font-family:var(--mono)}
+  main{max-width:1100px;margin:0 auto;padding:32px 32px 64px;display:flex;flex-direction:column;gap:24px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+  .card-header{padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  .step{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:var(--mono)}
+  .card-header h2{font-size:13px;font-weight:600}
+  .card-body{padding:20px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .drop{border:1.5px dashed var(--border);border-radius:var(--radius);padding:24px 16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;position:relative}
+  .drop:hover,.drop.over{border-color:var(--accent);background:rgba(232,168,56,.04)}
+  .drop input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+  .drop-icon{font-size:28px;margin-bottom:8px}
+  .drop-label{font-size:12px;font-weight:600;margin-bottom:4px}
+  .drop-hint{font-size:11px;color:var(--muted)}
+  .pill{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:11px;font-family:var(--mono);color:var(--accent2);display:flex;align-items:center;gap:6px;margin-top:6px}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--accent2);flex-shrink:0}
+  .fecha-row{display:flex;align-items:center;gap:14px}
+  .fecha-row label{color:var(--muted);font-size:12px}
+  input[type=date]{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:7px 12px;font-size:13px;font-family:var(--mono);outline:none}
+  input[type=date]:focus{border-color:var(--accent)}
+  .run-btn{display:flex;align-items:center;gap:10px;background:var(--accent);color:#0f1117;border:none;border-radius:var(--radius);padding:11px 24px;font-size:13px;font-weight:700;cursor:pointer;transition:opacity .15s;font-family:var(--sans)}
+  .run-btn:disabled{opacity:.4;cursor:not-allowed}
+  .run-btn:not(:disabled):hover{opacity:.88}
+  #log{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:14px;font-family:var(--mono);font-size:12px;line-height:1.7;min-height:48px;max-height:180px;overflow-y:auto;color:var(--muted)}
+  #log .ok{color:var(--accent2)} #log .err{color:var(--danger)} #log .warn{color:var(--accent)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{text-align:left;padding:9px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-bottom:1px solid var(--border)}
+  tbody tr{border-bottom:1px solid var(--border)}
+  tbody tr:last-child{border-bottom:none}
+  tbody td{padding:10px 14px;font-family:var(--mono)}
+  .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:700;border:1px solid currentColor}
+  .bar-wrap{display:flex;align-items:center;gap:10px}
+  .bar{height:6px;border-radius:99px;background:var(--border);flex:1;overflow:hidden}
+  .bar-fill{height:100%;border-radius:99px}
+  .hidden{display:none!important}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .spinner{width:16px;height:16px;border:2px solid rgba(15,17,23,.3);border-top-color:#0f1117;border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+  #cold-banner{background:rgba(232,168,56,.08);border:1px solid rgba(232,168,56,.3);border-radius:var(--radius);padding:12px 16px;font-size:12px;color:var(--accent);display:none}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo-mark"></div>
+  <div class="logo"></div>
   <div>
     <h1>Adherencia de Excavación</h1>
     <p>Análisis acumulado DXF + puntos de carguío</p>
   </div>
-  <span class="tag">MVP v0.1</span>
+  <span class="tag">MVP v0.2</span>
 </header>
 
 <main>
 
-  <!-- PASO 1: FECHA -->
+  <div id="cold-banner">
+    ⏳ El servidor está iniciando (puede tardar ~30 segundos la primera vez). Por favor espera…
+  </div>
+
+  <!-- PASO 1 -->
   <div class="card">
-    <div class="card-header">
-      <div class="step-num">1</div>
-      <h2>Fecha de análisis</h2>
-    </div>
+    <div class="card-header"><div class="step">1</div><h2>Fecha de análisis</h2></div>
     <div class="card-body">
       <div class="fecha-row">
         <label>Día operacional</label>
-        <input type="date" id="fecha-input" value="2026-07-08" />
-        <span style="font-size:12px;color:var(--muted)">Se incluyen todos los DXF hasta esta fecha.</span>
+        <input type="date" id="fecha-input" value="2026-07-08"/>
+        <span style="font-size:12px;color:var(--muted)">Se usan todos los polígonos hasta esta fecha.</span>
       </div>
     </div>
   </div>
 
-  <!-- PASO 2: ARCHIVOS -->
+  <!-- PASO 2 -->
   <div class="card">
-    <div class="card-header">
-      <div class="step-num">2</div>
-      <h2>Archivos</h2>
-    </div>
+    <div class="card-header"><div class="step">2</div><h2>Archivos</h2></div>
     <div class="card-body">
-      <div class="upload-grid">
+      <div class="grid2">
 
         <div>
-          <div class="drop-zone" id="zone-csv">
-            <input type="file" id="input-csv" accept=".csv" />
+          <div class="drop" id="zone-csv">
+            <input type="file" id="input-csv" accept=".csv"/>
             <div class="drop-icon">📄</div>
             <div class="drop-label">CSV de puntos de carguío</div>
             <div class="drop-hint">puntos_carguio_DD.MM.YYYY.csv</div>
           </div>
-          <div class="file-list" id="list-csv"></div>
+          <div id="list-csv"></div>
         </div>
 
         <div>
-          <div class="drop-zone" id="zone-dxf">
-            <input type="file" id="input-dxf" accept=".json" />
+          <div class="drop" id="zone-pol">
+            <input type="file" id="input-pol" accept=".json"/>
             <div class="drop-icon">📦</div>
             <div class="drop-label">Polígonos pre-procesados</div>
             <div class="drop-hint">poligonos.json (generado con dxf_a_json.py)</div>
           </div>
-          <div class="file-list" id="list-dxf"></div>
+          <div id="list-pol"></div>
         </div>
 
       </div>
 
-      <div style="margin-top:16px">
-        <div class="drop-zone" id="zone-topo" style="max-width:400px">
-          <input type="file" id="input-topo" accept=".json" />
+      <div style="margin-top:16px;max-width:400px">
+        <div class="drop" id="zone-topo">
+          <input type="file" id="input-topo" accept=".json"/>
           <div class="drop-icon">🏔️</div>
-          <div class="drop-label">JSON de topografía (opcional)</div>
-          <div class="drop-hint">rajo_simplificado.json — no se guarda en el servidor</div>
+          <div class="drop-label">Topografía (opcional)</div>
+          <div class="drop-hint">rajo_simplificado.json</div>
         </div>
-        <div class="file-list" id="list-topo"></div>
-      </div>
-
-
-
+        <div id="list-topo"></div>
       </div>
     </div>
   </div>
 
-
-  <!-- BOTÓN -->  <!-- BOTÓN -->
-  <div style="display:flex;align-items:center;gap:16px;">
+  <!-- BOTÓN -->
+  <div style="display:flex;align-items:center;gap:16px">
     <button class="run-btn" id="btn-run" disabled>
       <span id="btn-icon">▶</span>
       <span id="btn-text">Calcular adherencia</span>
     </button>
-    <span id="pyodide-status" style="font-size:12px;color:var(--muted)">Cargando entorno Python…</span>
   </div>
 
   <!-- LOG -->
   <div class="card">
-    <div class="card-header" style="cursor:pointer" onclick="document.getElementById('log').classList.toggle('hidden')">
-      <div class="step-num" style="border-color:var(--muted);color:var(--muted)">✦</div>
-      <h2>Consola</h2>
-    </div>
-    <div id="log"><span class="warn">⏳ Iniciando Pyodide y descargando librerías Python (~8 MB, solo la primera vez)…</span><br/></div>
+    <div class="card-header"><div class="step" style="border-color:var(--muted);color:var(--muted)">✦</div><h2>Consola</h2></div>
+    <div id="log"><span class="warn">Sube los archivos y pulsa Calcular.</span></div>
   </div>
 
   <!-- RESULTADOS -->
   <div class="card hidden" id="results-card">
-    <div class="card-header">
-      <div class="step-num" style="border-color:var(--accent2);color:var(--accent2)">✓</div>
-      <h2>Resultados de adherencia</h2>
-    </div>
-    <div class="card-body results-wrap">
-      <table id="results-table">
-        <thead>
-          <tr>
-            <th>Pala</th>
-            <th>Polígonos acumulados</th>
-            <th>Puntos carguío</th>
-            <th>Adherencia</th>
-          </tr>
-        </thead>
+    <div class="card-header"><div class="step" style="border-color:var(--accent2);color:var(--accent2)">✓</div><h2>Resultados</h2></div>
+    <div class="card-body" style="overflow-x:auto">
+      <table>
+        <thead><tr><th>Pala</th><th>Polígonos</th><th>Puntos</th><th>Adherencia</th></tr></thead>
         <tbody id="results-body"></tbody>
       </table>
     </div>
@@ -415,485 +155,183 @@
 
   <!-- GRÁFICO -->
   <div class="card hidden" id="plot-card">
-    <div class="card-header">
-      <div class="step-num" style="border-color:var(--accent2);color:var(--accent2)">✓</div>
-      <h2>Visualización espacial</h2>
-    </div>
-    <div class="card-body" style="padding:0">
-      <div id="plot-container"></div>
-    </div>
+    <div class="card-header"><div class="step" style="border-color:var(--accent2);color:var(--accent2)">✓</div><h2>Visualización espacial</h2></div>
+    <div id="plot-container" style="padding:0"></div>
   </div>
 
 </main>
 
-<script type="module">
-// ─── Utilidades UI ────────────────────────────────────────────────────────────
-const log = document.getElementById('log');
-function addLog(msg, cls = '') {
-  const line = document.createElement('span');
-  if (cls) line.className = cls;
-  line.textContent = msg;
-  log.appendChild(line);
-  log.appendChild(document.createElement('br'));
-  log.scrollTop = log.scrollHeight;
-}
+<script>
+// ── Config ────────────────────────────────────────────────────────────────────
+const API = 'https://TU-BACKEND.onrender.com';  // ← cambiar por URL real de Render
 
+// ── Estado ────────────────────────────────────────────────────────────────────
+let csvFile = null, polFile = null, topoFile = null;
+
+// ── Log ───────────────────────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function addLog(msg, cls='') {
+  const s = document.createElement('span');
+  if (cls) s.className = cls;
+  s.textContent = msg;
+  logEl.appendChild(s);
+  logEl.appendChild(document.createElement('br'));
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function clearLog() { logEl.innerHTML = ''; }
+
+// ── Botón ─────────────────────────────────────────────────────────────────────
 function setBtn(loading) {
   const btn = document.getElementById('btn-run');
-  const icon = document.getElementById('btn-icon');
-  const txt  = document.getElementById('btn-text');
-  if (loading) {
-    btn.disabled = true;
-    icon.innerHTML = '<div class="spinner"></div>';
-    txt.textContent = 'Procesando…';
-  } else {
-    btn.disabled = false;
-    icon.textContent = '▶';
-    txt.textContent = 'Calcular adherencia';
-  }
-}
-
-function pillarColor(i) {
-  const palette = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
-                   '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
-  return palette[i % palette.length];
-}
-
-// ─── File inputs ──────────────────────────────────────────────────────────────
-let csvFile  = null;
-let dxfFiles = {};  // name → File
-let topoJsonFile = null;  // JSON de topografía (opcional)
-
-function refreshCsvList() {
-  const el = document.getElementById('list-csv');
-  el.innerHTML = '';
-  if (!csvFile) return;
-  el.innerHTML = `<div class="file-pill"><span class="dot"></span>${csvFile.name}</div>`;
-  checkReady();
-}
-
-function refreshDxfList() {
-  const el = document.getElementById('list-dxf');
-  el.innerHTML = '';
-  if (dxfFiles['poligonos']) {
-    el.innerHTML = `<div class="file-pill"><span class="dot"></span>${dxfFiles['poligonos'].name}</div>`;
-  }
-  checkReady();
+  document.getElementById('btn-icon').innerHTML = loading
+    ? '<div class="spinner"></div>' : '▶';
+  document.getElementById('btn-text').textContent = loading
+    ? 'Procesando…' : 'Calcular adherencia';
+  btn.disabled = loading;
 }
 
 function checkReady() {
-  const ready = csvFile && Object.keys(dxfFiles).length > 0 && pyodideReady;
-  document.getElementById('btn-run').disabled = !ready;
+  document.getElementById('btn-run').disabled = !(csvFile && polFile);
 }
 
-function refreshTopoList() {
-  const el = document.getElementById('list-topo');
-  el.innerHTML = '';
-  if (!topoJsonFile) return;
-  el.innerHTML = `<div class="file-pill"><span class="dot"></span>${topoJsonFile.name}</div>`;
+// ── File handlers ─────────────────────────────────────────────────────────────
+function makePill(name) {
+  return `<div class="pill"><span class="dot"></span>${name}</div>`;
 }
 
-document.getElementById('input-topo').addEventListener('change', e => {
-  if (e.target.files[0]) { topoJsonFile = e.target.files[0]; refreshTopoList(); }
-});
+function setupDrop(zoneId, inputId, listId, multi, onFile) {
+  const zone  = document.getElementById(zoneId);
+  const input = document.getElementById(inputId);
+  const list  = document.getElementById(listId);
 
-document.getElementById('zone-topo').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('zone-topo').classList.add('drag-over'); });
-document.getElementById('zone-topo').addEventListener('dragleave', () => document.getElementById('zone-topo').classList.remove('drag-over'));
-document.getElementById('zone-topo').addEventListener('drop', e => {
-  e.preventDefault(); document.getElementById('zone-topo').classList.remove('drag-over');
-  const f = Array.from(e.dataTransfer.files).find(f => f.name.endsWith('.json'));
-  if (f) { topoJsonFile = f; refreshTopoList(); }
-});
+  input.addEventListener('change', e => {
+    const f = multi ? Array.from(e.target.files) : e.target.files[0];
+    onFile(f);
+    list.innerHTML = multi
+      ? f.map(x => makePill(x.name)).join('')
+      : (f ? makePill(f.name) : '');
+    checkReady();
+  });
 
-document.getElementById('input-csv').addEventListener('change', e => {
-  if (e.target.files[0]) { csvFile = e.target.files[0]; refreshCsvList(); }
-});
-
-document.getElementById('input-dxf').addEventListener('change', e => {
-  if (e.target.files[0]) { dxfFiles['poligonos'] = e.target.files[0]; refreshDxfList(); }
-});
-
-['zone-csv','zone-dxf'].forEach(id => {
-  const z = document.getElementById(id);
-  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('drag-over'); });
-  z.addEventListener('dragleave', () => z.classList.remove('drag-over'));
-  z.addEventListener('drop', e => {
-    e.preventDefault(); z.classList.remove('drag-over');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('over');
     const files = Array.from(e.dataTransfer.files);
-    if (id === 'zone-csv') {
-      const f = files.find(f => f.name.endsWith('.csv'));
-      if (f) { csvFile = f; refreshCsvList(); }
-    } else {
-      const f = files.find(f => f.name.endsWith('.json') && !f.name.includes('rajo'));
-      if (f) { dxfFiles['poligonos'] = f; }
-      refreshDxfList();
-    }
+    const f = multi ? files : files[0];
+    if (!f || (multi && !f.length)) return;
+    onFile(f);
+    list.innerHTML = multi
+      ? files.map(x => makePill(x.name)).join('')
+      : makePill(f.name);
+    checkReady();
   });
-});
-
-// ─── Pyodide bootstrap ────────────────────────────────────────────────────────
-let pyodide = null;
-let pyodideReady = false;
-
-async function readFileAsBytes(file) {
-  return new Uint8Array(await file.arrayBuffer());
 }
 
-async function initPyodide() {
-  const script = document.createElement('script');
-  script.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js';
-  document.head.appendChild(script);
-  await new Promise(r => script.onload = r);
+setupDrop('zone-csv',  'input-csv',  'list-csv',  false, f => csvFile  = f);
+setupDrop('zone-pol',  'input-pol',  'list-pol',  false, f => polFile  = f);
+setupDrop('zone-topo', 'input-topo', 'list-topo', false, f => topoFile = f);
 
-  addLog('▸ Pyodide descargado. Instalando paquetes Python…', 'warn');
-  pyodide = await loadPyodide({
-    stdout: (msg) => {
-      if (msg.startsWith('[LOG]')) {
-        addLog('  ' + msg.replace('[LOG] ', ''), 'ok');
-      }
-    }
-  });
-
-  await pyodide.loadPackage(['micropip', 'numpy', 'pandas', 'matplotlib']);
-  addLog('▸ numpy, pandas listos', 'ok');
-
-  const micropip = pyodide.pyimport('micropip');
-  await micropip.install(['shapely', 'pyproj', 'ezdxf']);
-  addLog('▸ shapely, pyproj, ezdxf instalados', 'ok');
-
-  pyodideReady = true;
-  document.getElementById('pyodide-status').textContent = 'Entorno Python listo ✓';
-  addLog('✓ Entorno listo. Sube archivos y pulsa Calcular.', 'ok');
-  checkReady();
-}
-
-initPyodide().catch(e => {
-  addLog('✗ Error cargando Pyodide: ' + e.message, 'err');
-});
-
-// ─── Python processing code ───────────────────────────────────────────────────
-const PYTHON_CODE = `
-import numpy as np
-import pandas as pd
-import math, io, re, json
-import shapely
-from shapely.geometry import Polygon, MultiPolygon
-from shapely.ops import unary_union
-from pyproj import Transformer
-import matplotlib.colors as mcolors
-
-def log(msg):
-    print('[LOG]', msg)
-
-# ── helpers ───────────────────────────────────────────────────────────────────
-def construir_geometria(lista_vertices):
-    polys = []
-    for verts in lista_vertices:
-        if not verts or len(verts) < 3: continue
-        p = Polygon(verts)
-        if not p.is_valid: p = p.buffer(0)
-        if not p.is_empty: polys.append(p)
-    return unary_union(polys) if polys else None
-
-def construir_solidos(poligonos, fecha_limite):
-    solidos = {}
-    for pol in poligonos:
-        if pd.Timestamp(pol['fecha']) > fecha_limite: continue
-        pala = pol['pala']
-        if pala not in solidos:
-            solidos[pala] = {'vertices': [], 'n_poligonos': 0}
-        solidos[pala]['vertices'].append(pol['vertices'])
-        solidos[pala]['n_poligonos'] += 1
-    resultado = {}
-    for pala, data in solidos.items():
-        geom = construir_geometria(data['vertices'])
-        if geom and not geom.is_empty:
-            resultado[pala] = {'geom': geom, 'n_poligonos': data['n_poligonos']}
-    return resultado
-
-def calcular_adherencia(geometria, xy, buffer_m=5.0):
-    xy = np.asarray(xy, dtype=float)
-    if len(xy) == 0: return float('nan')
-    geometria = geometria.buffer(buffer_m).simplify(1.0, preserve_topology=True)
-    x, y = xy[:, 0], xy[:, 1]
-    pts = shapely.points(x, y)
-    dentro = shapely.contains_xy(geometria, x, y)
-    return 100.0 * dentro.sum() / len(xy)
-
-def _anillos(geom):
-    if not geom or geom.is_empty: return []
-    polys = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
-    out = []
-    for poly in polys:
-        out.append(np.array(poly.exterior.coords))
-        for h in poly.interiors: out.append(np.array(h.coords))
-    return out
-
-# ── main function ─────────────────────────────────────────────────────────────
-def run_analysis(csv_bytes, poligonos_json_str, topo_json_str, fecha_str,
-                 buffer_m=5.0, angulo=-45):
-
-    CX, CY = 409716.0, 7496728.0
-    fecha_limite = pd.Timestamp(fecha_str)
-
-    def rotar(pts):
-        arr = np.array(pts)
-        rad = math.radians(angulo)
-        dx, dy = arr[:,0]-CX, arr[:,1]-CY
-        return np.column_stack([
-            CX + dx*math.cos(rad) - dy*math.sin(rad),
-            CY + dx*math.sin(rad) + dy*math.cos(rad)
-        ])
-
-    # ── topografía desde JSON ─────────────────────────────────────────────────
-    segs_raw = []
-    if topo_json_str:
-        topo_data = json.loads(topo_json_str)
-        ang_inv = math.radians(angulo)
-        cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
-        for linea in topo_data.get('lineas', []):
-            pts = np.array(linea, dtype=float)
-            x_utm = CX + pts[:,0]*cos_a - pts[:,1]*sin_a
-            y_utm = CY + pts[:,0]*sin_a + pts[:,1]*cos_a
-            segs_raw.append(np.column_stack([x_utm, y_utm]))
-        log(f"Topografia: {len(segs_raw)} segmentos cargados")
-
-    # ── polígonos desde JSON ──────────────────────────────────────────────────
-    log("Cargando poligonos pre-procesados...")
-    data = json.loads(poligonos_json_str)
-    poligonos = data['poligonos']
-    log(f"Total poligonos en JSON: {len(poligonos)}")
-
-    log(f"Construyendo solidos acumulados hasta {fecha_str}...")
-    solidos = construir_solidos(poligonos, fecha_limite)
-    log(f"Solidos construidos: {list(solidos.keys())}")
-
-    if not solidos:
-        return None, "No se encontraron poligonos para la fecha dada."
-
-    # ── puntos CSV ────────────────────────────────────────────────────────────
-    log("Leyendo CSV de puntos de carguio...")
-    puntos = pd.read_csv(io.BytesIO(bytes(csv_bytes)), sep=';')
-    puntos = puntos[puntos['longitude'].notna() & puntos['latitude'].notna()].copy()
-    log(f"Puntos CSV: {len(puntos)} filas")
-
-    puntos['lon_wgs84'] = puntos['longitude'] / 3_600_000
-    puntos['lat_wgs84'] = puntos['latitude']  / 3_600_000
-    log("Transformando coordenadas WGS84 -> UTM PSAD56...")
-    t = Transformer.from_crs(4326, 24879, always_xy=True)
-    puntos['x'], puntos['y'] = t.transform(puntos['lon_wgs84'].values, puntos['lat_wgs84'].values)
-
-    puntos['time_tripped'] = pd.to_datetime(puntos['time_tripped'])
-    puntos['time_tripped'] = puntos['time_tripped'].dt.tz_localize('UTC').dt.tz_convert('America/Santiago')
-    hora      = puntos['time_tripped'].dt.hour
-    fecha_col = puntos['time_tripped'].dt.date
-
-    puntos['date_op'] = np.select(
-        [hora < 8, (hora >= 8)&(hora < 20), hora >= 20],
-        [fecha_col - pd.Timedelta(days=1), fecha_col, fecha_col], default=pd.NaT)
-    puntos['turno'] = np.select([hora < 8,(hora>=8)&(hora<20),hora>=20],['B','A','B'],default=None)
-    puntos['date_op'] = pd.to_datetime(puntos['date_op'])
-    if 'elevation' in puntos.columns:
-        puntos = puntos.rename(columns={'elevation':'z'})
-    puntos['fase'] = 'F0' + puntos['fase'].str.extract(r'FASE\\s*(\\d)', expand=False).fillna('')
-    puntos = puntos[puntos['shovel'] != 'L01'].copy()
-
-    if 'SH01' in puntos['shovel'].values and 'SH02' in puntos['shovel'].values:
-        sh01_y_min = puntos[puntos['shovel']=='SH01']['y'].min()
-        mask = (puntos['shovel']=='SH02') & (puntos['y'] > sh01_y_min)
-        puntos = puntos[~mask].copy()
-
-    puntos_clean = puntos[
-        (puntos['date_op'] >= fecha_limite) &
-        (puntos['date_op'] <= fecha_limite)
-    ].reset_index(drop=True)
-    log(f"Puntos limpios: {len(puntos_clean)}")
-
-    # ── adherencia ────────────────────────────────────────────────────────────
-    log("Calculando adherencia...")
-    resultados = []
-    for pala, item in solidos.items():
-        sub = puntos_clean[puntos_clean['shovel'] == pala]
-        adh = calcular_adherencia(item['geom'], sub[['x','y']].to_numpy(), buffer_m=buffer_m)
-        resultados.append({'pala': pala, 'n_poligonos': item['n_poligonos'],
-                           'n_puntos': len(sub), 'adherencia': round(adh, 1)})
-        log(f"  {pala}: {len(sub)} puntos -> {round(adh,1)}%")
-
-    df_res = pd.DataFrame(resultados).sort_values('pala').reset_index(drop=True)
-
-    # ── datos para gráfico ────────────────────────────────────────────────────
-    log("Preparando visualizacion...")
-    palas_lista = sorted(set(s['pala'] for s in solidos.values() if True) | set(puntos_clean['shovel'].dropna()))
-    _tab10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
-               '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf']
-    color_pala = {p: _tab10[i%10] for i,p in enumerate(sorted(palas_lista))}
-
-    topo_segs = []
-    for seg in segs_raw:
-        r = rotar(seg)
-        topo_segs.append({'x': r[:,0].tolist(), 'y': r[:,1].tolist()})
-
-    solidos_plot = []
-    for pala, item in solidos.items():
-        xs, ys = [], []
-        for ring in _anillos(item['geom']):
-            r = rotar(ring)
-            xs.extend(r[:,0].tolist() + [None])
-            ys.extend(r[:,1].tolist() + [None])
-        solidos_plot.append({'pala': pala, 'xs': xs, 'ys': ys, 'color': color_pala.get(pala,'#888')})
-
-    puntos_plot = []
-    for pala in sorted(palas_lista):
-        sub = puntos_clean[puntos_clean['shovel'] == pala]
-        if sub.empty: continue
-        pts_r = rotar(sub[['x','y']].to_numpy())
-        puntos_plot.append({'pala': pala, 'x': pts_r[:,0].tolist(), 'y': pts_r[:,1].tolist(),
-                            'color': color_pala.get(pala,'#888')})
-
-    resultado_final = {
-        'tabla': df_res.to_dict(orient='records'),
-        'topo_segs': topo_segs,
-        'solidos': solidos_plot,
-        'puntos': puntos_plot,
-        'buffer_m': buffer_m,
-        'fecha': fecha_str,
-        'n_poligonos_total': sum(s['n_poligonos'] for s in solidos.values()),
-        'n_puntos_total': len(puntos_clean),
-    }
-    log("Listo!")
-    return json.dumps(resultado_final), None
-`;
-
-// ─── Run button ───────────────────────────────────────────────────────────────
+// ── Run ───────────────────────────────────────────────────────────────────────
 document.getElementById('btn-run').addEventListener('click', async () => {
+  clearLog();
   setBtn(true);
   document.getElementById('results-card').classList.add('hidden');
   document.getElementById('plot-card').classList.add('hidden');
 
+  const fecha = document.getElementById('fecha-input').value;
+  addLog('▸ Enviando archivos al servidor…', 'warn');
+
+  const form = new FormData();
+  form.append('csv_file',       csvFile);
+  form.append('poligonos_file', polFile);
+  form.append('fecha',          fecha);
+  if (topoFile) form.append('topo_file', topoFile);
+
+  // Mostrar banner de cold start después de 5s sin respuesta
+  const coldTimer = setTimeout(() => {
+    document.getElementById('cold-banner').style.display = 'block';
+  }, 5000);
+
   try {
-    const fecha = document.getElementById('fecha-input').value;
-    // Read topo JSON if provided
-    let topoJsonStr = '';
-    if (topoJsonFile) {
-      topoJsonStr = await topoJsonFile.text();
-    }
+    const res  = await fetch(`${API}/analizar`, { method: 'POST', body: form });
+    clearTimeout(coldTimer);
+    document.getElementById('cold-banner').style.display = 'none';
 
-    addLog('▸ Leyendo archivos…', 'warn');
+    const data = await res.json();
 
-    const csvBytes = new Uint8Array(await csvFile.arrayBuffer());
-    const poligonosStr = await dxfFiles['poligonos'].text();
-
-    pyodide.globals.set('_csv_bytes', csvBytes);
-    pyodide.globals.set('_poligonos_json', poligonosStr);
-    pyodide.globals.set('_topo_json', topoJsonStr);
-    pyodide.globals.set('_fecha', fecha);
-
-    addLog('▸ Ejecutando análisis en Python…', 'warn');
-
-    await pyodide.runPythonAsync(PYTHON_CODE);
-
-    const result = await pyodide.runPythonAsync(`
-run_analysis(
-    csv_bytes          = _csv_bytes,
-    poligonos_json_str = _poligonos_json,
-    topo_json_str      = _topo_json if _topo_json else None,
-    fecha_str          = _fecha,
-    buffer_m           = 5.0,
-    angulo             = -45
-)
-`);
-
-    const [jsonStr, errMsg] = result.toJs({ dict_converter: Object.fromEntries });
-
-    if (errMsg) {
-      addLog('✗ Error: ' + errMsg, 'err');
+    if (data.error) {
+      addLog('✗ Error: ' + data.error, 'err');
       setBtn(false); return;
     }
 
-    const data = JSON.parse(jsonStr);
-    addLog(`✓ Análisis completado: ${data.n_poligonos_total} polígonos, ${data.n_puntos_total} puntos`, 'ok');
-
+    addLog(`✓ ${data.n_puntos_total} puntos procesados`, 'ok');
     renderTabla(data.tabla);
     renderPlot(data);
-
     document.getElementById('results-card').classList.remove('hidden');
     document.getElementById('plot-card').classList.remove('hidden');
 
   } catch(e) {
-    addLog('✗ Error inesperado: ' + e.message, 'err');
-    console.error(e);
+    clearTimeout(coldTimer);
+    document.getElementById('cold-banner').style.display = 'none';
+    addLog('✗ No se pudo conectar al servidor: ' + e.message, 'err');
   }
 
   setBtn(false);
 });
 
-// ─── Render tabla ─────────────────────────────────────────────────────────────
+// ── Tabla ─────────────────────────────────────────────────────────────────────
 function renderTabla(tabla) {
-  const tbody = document.getElementById('results-body');
-  tbody.innerHTML = '';
-  const colores = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
-                   '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+  const colors = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+                  '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
   const palas = [...new Set(tabla.map(r => r.pala))].sort();
-
-  tabla.forEach((row, i) => {
-    const color = colores[palas.indexOf(row.pala) % colores.length];
+  document.getElementById('results-body').innerHTML = tabla.map(row => {
+    const c   = colors[palas.indexOf(row.pala) % colors.length];
     const adh = isNaN(row.adherencia) ? '—' : row.adherencia + '%';
     const pct = isNaN(row.adherencia) ? 0 : row.adherencia;
-    const fillColor = pct >= 80 ? '#4fc3a1' : pct >= 60 ? '#e8a838' : '#e05c5c';
-
-    tbody.innerHTML += `
-      <tr>
-        <td><span class="pala-badge" style="color:${color};border-color:${color}">${row.pala}</span></td>
-        <td style="text-align:right">${row.n_poligonos}</td>
-        <td style="text-align:right">${row.n_puntos}</td>
-        <td>
-          <div class="adh-bar-wrap">
-            <div class="adh-bar"><div class="adh-fill" style="width:${pct}%;background:${fillColor}"></div></div>
-            <span style="font-weight:700;color:${fillColor};min-width:40px">${adh}</span>
-          </div>
-        </td>
-      </tr>`;
-  });
+    const fc  = pct >= 80 ? '#4fc3a1' : pct >= 60 ? '#e8a838' : '#e05c5c';
+    return `<tr>
+      <td><span class="badge" style="color:${c};border-color:${c}">${row.pala}</span></td>
+      <td style="text-align:right">${row.n_poligonos}</td>
+      <td style="text-align:right">${row.n_puntos}</td>
+      <td><div class="bar-wrap">
+        <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${fc}"></div></div>
+        <span style="font-weight:700;color:${fc};min-width:40px">${adh}</span>
+      </div></td>
+    </tr>`;
+  }).join('');
 }
 
-// ─── Render plot ──────────────────────────────────────────────────────────────
+// ── Plot ──────────────────────────────────────────────────────────────────────
 function renderPlot(data) {
   const traces = [];
 
-  // Topografía
-  if (data.topo_segs.length) {
+  if (data.topo_segs && data.topo_segs.length) {
     const xT = [], yT = [];
     data.topo_segs.forEach(s => { xT.push(...s.x, null); yT.push(...s.y, null); });
-    traces.push({ x: xT, y: yT, type: 'scattergl', mode: 'lines',
-      line: { color: '#3a3d4a', width: 0.8 }, showlegend: false, hoverinfo: 'skip' });
+    traces.push({ x:xT, y:yT, type:'scattergl', mode:'lines',
+      line:{color:'#3a3d4a',width:.8}, showlegend:false, hoverinfo:'skip' });
   }
 
-  // Sólidos acumulados
-  data.solidos.forEach(s => {
-    traces.push({ x: s.xs, y: s.ys, type: 'scatter', mode: 'lines',
-      fill: 'toself', opacity: 0.25,
-      line: { color: s.color, width: 1 },
-      fillcolor: s.color, name: `${s.pala} (Sólido)` });
-  });
+  data.solidos.forEach(s => traces.push({
+    x:s.xs, y:s.ys, type:'scatter', mode:'lines',
+    fill:'toself', opacity:.25,
+    line:{color:s.color,width:1}, fillcolor:s.color, name:`${s.pala} (Sólido)`
+  }));
 
-  // Puntos
-  data.puntos.forEach(p => {
-    traces.push({ x: p.x, y: p.y, type: 'scattergl', mode: 'markers',
-      marker: { color: p.color, size: 4, opacity: 0.85 },
-      name: `${p.pala} (Pts)` });
-  });
+  data.puntos.forEach(p => traces.push({
+    x:p.x, y:p.y, type:'scattergl', mode:'markers',
+    marker:{color:p.color,size:4,opacity:.85}, name:`${p.pala} (Pts)`
+  }));
 
   Plotly.newPlot('plot-container', traces, {
-    title: { text: `Sólidos acumulados + Carguío · ${data.fecha}`, font: { color: '#e4e6f0', size: 13 } },
-    paper_bgcolor: '#1a1d27',
-    plot_bgcolor:  '#1a1d27',
-    font: { color: '#7a7f99' },
-    xaxis: { visible: false, scaleanchor: 'y' },
-    yaxis: { visible: false },
-    legend: { bgcolor: '#0f1117', bordercolor: '#2a2d3a', borderwidth: 1,
-              font: { color: '#e4e6f0', size: 11 } },
-    margin: { t: 48, r: 20, b: 20, l: 20 },
-  }, { responsive: true, displayModeBar: false });
+    title:{text:`Sólidos acumulados · ${data.fecha}`,font:{color:'#e4e6f0',size:13}},
+    paper_bgcolor:'#1a1d27', plot_bgcolor:'#1a1d27',
+    font:{color:'#7a7f99'},
+    xaxis:{visible:false,scaleanchor:'y'}, yaxis:{visible:false},
+    legend:{bgcolor:'#0f1117',bordercolor:'#2a2d3a',borderwidth:1,font:{color:'#e4e6f0',size:11}},
+    margin:{t:48,r:20,b:20,l:20},
+  }, {responsive:true, displayModeBar:false});
 }
 </script>
 </body>
