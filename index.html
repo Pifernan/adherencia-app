@@ -304,7 +304,7 @@
   <div class="logo-mark"></div>
   <div>
     <h1>Adherencia de Excavación</h1>
-    <p>Antucoya · Análisis acumulado DXF + puntos de carguío</p>
+    <p>Análisis acumulado DXF + puntos de carguío</p>
   </div>
   <span class="tag">MVP v0.1</span>
 </header>
@@ -614,9 +614,10 @@ def construir_solidos(poligonos, fecha_limite):
 def calcular_adherencia(geometria, xy, buffer_m=5.0):
     xy = np.asarray(xy, dtype=float)
     if len(xy) == 0: return float('nan')
-    geometria = geometria.buffer(buffer_m)
+    geometria = geometria.buffer(buffer_m).simplify(1.0, preserve_topology=True)
     x, y = xy[:, 0], xy[:, 1]
-    dentro = shapely.covers(geometria, shapely.points(x, y))
+    pts = shapely.points(x, y)
+    dentro = shapely.contains_xy(geometria, x, y)
     return 100.0 * dentro.sum() / len(xy)
 
 def _anillos(geom):
