@@ -639,7 +639,7 @@ def calcular_adherencia(geometria, xy, buffer_m=5.0):
     return 100.0 * dentro.sum() / len(xy)
 
 def fecha_desde_nombre(nombre):
-    m = re.search(r'__(\d+)_(\d+)_(\d+)(?:_\d+)?__SURF', nombre)
+    m = re.search(r'__(\\d+)_(\\d+)_(\\d+)(?:_\\d+)?__SURF', nombre)
     if not m: return None
     mes, dia, anio = int(m.group(1)), int(m.group(2)), int(m.group(3))
     return pd.Timestamp(year=anio, month=mes, day=dia)
@@ -740,7 +740,7 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
     puntos['turno'] = np.select([hora < 8,(hora>=8)&(hora<20),hora>=20],['B','A','B'],default=None)
     puntos['date_op'] = pd.to_datetime(puntos['date_op'])
     puntos = puntos.rename(columns={'elevation':'z'})
-    puntos['fase'] = 'F0' + puntos['fase'].str.extract(r'FASE\s*(\d)', expand=False).fillna('')
+    puntos['fase'] = 'F0' + puntos['fase'].str.extract(r'FASE\\s*(\\d)', expand=False).fillna('')
     puntos = puntos[puntos['shovel'] != 'L01'].copy()
 
     if 'SH01' in puntos['shovel'].values and 'SH02' in puntos['shovel'].values:
