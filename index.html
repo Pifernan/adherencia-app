@@ -576,7 +576,7 @@ async function initPyodide() {
   addLog('▸ Pyodide descargado. Instalando paquetes Python…', 'warn');
   pyodide = await loadPyodide();
 
-  await pyodide.loadPackage(['micropip', 'numpy', 'pandas','matplotlib']);
+  await pyodide.loadPackage(['micropip', 'numpy', 'pandas', 'matplotlib']);
   addLog('▸ numpy, pandas listos', 'ok');
 
   const micropip = pyodide.pyimport('micropip');
