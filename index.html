@@ -325,11 +325,11 @@ function renderPlot(data) {
   }));
 
   Plotly.newPlot('plot-container', traces, {
-    title:{text:`Sólidos acumulados · ${data.fecha}`,font:{color:'#e4e6f0',size:13}},
-    paper_bgcolor:'#1a1d27', plot_bgcolor:'#1a1d27',
+    title:{text:`Puntos de carguío en sólidos PM acumulado al ${data.fecha}`,font:{color:'#212121',size:13}},
+    paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff',
     font:{color:'#7a7f99'},
     xaxis:{visible:false,scaleanchor:'y'}, yaxis:{visible:false},
-    legend:{bgcolor:'#0f1117',bordercolor:'#2a2d3a',borderwidth:1,font:{color:'#e4e6f0',size:11}},
+    legend:{bgcolor:'#f5f5f5',bordercolor:'#e0e0e0',borderwidth:1,font:{color:'#212121',size:11}},
     margin:{t:48,r:20,b:20,l:20},
   }, {responsive:true, displayModeBar:true, modeBarButtonsToRemove: ['toImage','sendDataToCloud','editInChartStudio','zoom2d','pan2d','select2d','lasso2d','zoomIn2d','zoomOut2d'], displaylogo:false});
 }
