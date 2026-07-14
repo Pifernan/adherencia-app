@@ -638,7 +638,9 @@ def calcular_adherencia(geometria, xy, buffer_m=5.0):
     dentro = shapely.covers(geometria, shapely.points(x, y))
     return 100.0 * dentro.sum() / len(xy)
 
-def fecha_desde_nombre(nombre):
+import io as _io
+def _read_dxf(raw_bytes):
+    return ezdxf.read(_io.TextIOWrapper(_io.BytesIO(bytes(raw_bytes)), encoding='utf-8', errors='replace'))
     m = re.search(r'__(\\d+)_(\\d+)_(\\d+)(?:_\\d+)?__SURF', nombre)
     if not m: return None
     mes, dia, anio = int(m.group(1)), int(m.group(2)), int(m.group(3))
@@ -698,7 +700,7 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         ts = fecha_desde_nombre(nombre)
         if ts is None or ts > fecha_limite: continue
         if nombre not in dxf_dict_bytes: continue
-        doc = ezdxf.read(io.BytesIO(bytes(dxf_dict_bytes[nombre])))
+        doc = _read_dxf(dxf_dict_bytes[nombre])
         todos = []
         for e in doc.modelspace():
             if e.dxftype() == 'POLYLINE':
