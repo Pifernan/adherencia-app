@@ -574,7 +574,13 @@ async function initPyodide() {
   await new Promise(r => script.onload = r);
 
   addLog('▸ Pyodide descargado. Instalando paquetes Python…', 'warn');
-  pyodide = await loadPyodide();
+  pyodide = await loadPyodide({
+    stdout: (msg) => {
+      if (msg.startsWith('[LOG]')) {
+        addLog('  ' + msg.replace('[LOG] ', ''), 'ok');
+      }
+    }
+  });
 
   await pyodide.loadPackage(['micropip', 'numpy', 'pandas', 'matplotlib']);
   addLog('▸ numpy, pandas listos', 'ok');
@@ -599,6 +605,9 @@ import numpy as np
 import pandas as pd
 import math, io, re, json
 import ezdxf
+
+def log(msg):
+    print('[LOG]', msg)
 import shapely
 from shapely.geometry import Polygon, MultiPolygon
 from shapely.ops import unary_union
@@ -693,10 +702,13 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
 
     # ── polígonos DXF ─────────────────────────────────────────────────────────
     rows = []
-    for nombre, m_local in mapeo.items():
-        ts = fecha_desde_nombre(nombre)
-        if ts is None or ts > fecha_limite: continue
-        if nombre not in dxf_dict_bytes: continue
+    archivos_a_procesar = [(n, m) for n, m in mapeo.items()
+                           if fecha_desde_nombre(n) is not None
+                           and fecha_desde_nombre(n) <= fecha_limite
+                           and n in dxf_dict_bytes]
+    log(f"Archivos DXF a procesar: {len(archivos_a_procesar)}")
+    for i, (nombre, m_local) in enumerate(archivos_a_procesar):
+        log(f"  [{i+1}/{len(archivos_a_procesar)}] Leyendo {nombre}...")
         doc = _read_dxf(dxf_dict_bytes[nombre])
         todos = []
         for e in doc.modelspace():
@@ -704,11 +716,13 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
                 pts = [(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
                 if len(pts) >= 2:
                     todos.append({'pts': pts, 'idx': len(todos)+1})
+        n_rows_antes = len(rows)
         for p in todos:
             if p['idx'] not in m_local: continue
             asig = m_local[p['idx']]
             verts = cerrar_poligono_robusto(p['pts'])
             if verts: rows.append({'pala': asig['pala'], 'fase': asig['fase'], 'vertices': verts})
+        log(f"    → {len(rows)-n_rows_antes} polígonos extraídos")
 
     if not rows:
         dxf_subidos = list(dxf_dict_bytes.keys())
@@ -717,15 +731,19 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         msg = "No se encontraron poligonos. DXF subidos: " + str(dxf_subidos) + " | Coinciden mapeo: " + str(coinciden) + " | Pasan fecha " + str(fecha_limite.date()) + ": " + str(fechas_ok)
         return None, msg
 
+    log(f'Construyendo solidos acumulados desde {len(rows)} poligonos...')
     polygons = pd.DataFrame(rows)
     solidos  = construir_solidos(polygons)
+    log(f'Solidos construidos: {list(solidos.keys())}')
 
     # ── puntos CSV ────────────────────────────────────────────────────────────
+    log('Leyendo CSV de puntos de carguio...')
     puntos = pd.read_csv(io.BytesIO(bytes(csv_bytes)), sep=';')
     puntos = puntos[puntos['longitude'].notna() & puntos['latitude'].notna()].copy()
 
     puntos['lon_wgs84'] = puntos['longitude'] / 3_600_000
     puntos['lat_wgs84'] = puntos['latitude']  / 3_600_000
+    log('Transformando coordenadas WGS84 -> UTM PSAD56...')
     t = Transformer.from_crs(4326, 24879, always_xy=True)
     puntos['x'], puntos['y'] = t.transform(puntos['lon_wgs84'].values, puntos['lat_wgs84'].values)
 
@@ -753,6 +771,7 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         (puntos['date_op'] <= fecha_limite)
     ].reset_index(drop=True)
 
+    log(f'Puntos limpios: {len(puntos_clean)}. Calculando adherencia...')
     # ── adherencia ────────────────────────────────────────────────────────────
     resultados = []
     for pala, item in solidos.items():
@@ -761,6 +780,7 @@ def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
         resultados.append({'pala': pala, 'n_poligonos': item['n_poligonos'],
                            'n_puntos': len(sub), 'adherencia': round(adh, 1)})
 
+    log('Preparando visualizacion...')
     df_res = pd.DataFrame(resultados).sort_values('pala').reset_index(drop=True)
 
     # ── datos para gráfico ────────────────────────────────────────────────────
