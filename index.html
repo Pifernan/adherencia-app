@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Adherencia de Excavación — Antucoya</title>
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<style>
+  :root {
+    --bg:       #0f1117;
+    --surface:  #1a1d27;
+    --border:   #2a2d3a;
+    --accent:   #e8a838;
+    --accent2:  #4fc3a1;
+    --text:     #e4e6f0;
+    --muted:    #7a7f99;
+    --danger:   #e05c5c;
+    --radius:   6px;
+    --mono:     'JetBrains Mono', 'Fira Code', monospace;
+    --sans:     'Inter', system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-mark {
+    width: 32px; height: 32px;
+    background: var(--accent);
+    clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    flex-shrink: 0;
+  }
+
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+  header p  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .tag {
+    margin-left: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 3px 10px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 32px 32px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+
+  .card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .step-num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-family: var(--mono);
+  }
+
+  .card-header h2 { font-size: 13px; font-weight: 600; }
+
+  .card-body { padding: 20px; }
+
+  /* Fecha */
+  .fecha-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .fecha-row label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+  input[type="date"] {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    padding: 7px 12px;
+    font-size: 13px;
+    font-family: var(--mono);
+    outline: none;
+  }
+  input[type="date"]:focus { border-color: var(--accent); }
+
+  /* Upload zones */
+  .upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .drop-zone {
+    border: 1.5px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    position: relative;
+  }
+
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(232, 168, 56, 0.04);
+  }
+
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%;
+  }
+
+  .drop-icon { font-size: 28px; margin-bottom: 8px; }
+  .drop-label { font-size: 12px; font-weight: 600; margin-bottom: 4px; }
+  .drop-hint  { font-size: 11px; color: var(--muted); }
+
+  .file-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+  }
+
+  .file-pill {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--accent2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .file-pill .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent2); flex-shrink: 0; }
+
+  /* Mapeo */
+  .mapeo-hint {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    line-height: 1.5;
+  }
+
+  textarea#mapeo-json {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 12px;
+    resize: vertical;
+    min-height: 180px;
+    outline: none;
+    line-height: 1.55;
+  }
+  textarea#mapeo-json:focus { border-color: var(--accent); }
+
+  /* Botón */
+  .run-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--accent);
+    color: #0f1117;
+    border: none;
+    border-radius: var(--radius);
+    padding: 11px 24px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    font-family: var(--sans);
+  }
+  .run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .run-btn:not(:disabled):hover { opacity: 0.88; }
+
+  /* Log */
+  #log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.7;
+    min-height: 60px;
+    max-height: 220px;
+    overflow-y: auto;
+    color: var(--muted);
+  }
+  #log .ok   { color: var(--accent2); }
+  #log .warn { color: var(--accent); }
+  #log .err  { color: var(--danger); }
+
+  /* Tabla resultados */
+  .results-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 9px 14px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  tbody td {
+    padding: 10px 14px;
+    font-family: var(--mono);
+  }
+
+  .pala-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 99px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid currentColor;
+  }
+
+  .adh-bar-wrap { display: flex; align-items: center; gap: 10px; }
+  .adh-bar {
+    height: 6px;
+    border-radius: 99px;
+    background: var(--border);
+    flex: 1;
+    overflow: hidden;
+  }
+  .adh-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+
+  #plot-container {
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+
+  .hidden { display: none !important; }
+
+  /* Spinner */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(15,17,23,0.3);
+    border-top-color: #0f1117;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark"></div>
+  <div>
+    <h1>Adherencia de Excavación</h1>
+    <p>Antucoya · Análisis acumulado DXF + puntos de carguío</p>
+  </div>
+  <span class="tag">MVP v0.1</span>
+</header>
+
+<main>
+
+  <!-- PASO 1: FECHA -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-num">1</div>
+      <h2>Fecha de análisis</h2>
+    </div>
+    <div class="card-body">
+      <div class="fecha-row">
+        <label>Día operacional</label>
+        <input type="date" id="fecha-input" value="2026-07-08" />
+        <span style="font-size:12px;color:var(--muted)">Se incluyen todos los DXF hasta esta fecha.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 2: ARCHIVOS -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-num">2</div>
+      <h2>Archivos</h2>
+    </div>
+    <div class="card-body">
+      <div class="upload-grid">
+
+        <div>
+          <div class="drop-zone" id="zone-csv">
+            <input type="file" id="input-csv" accept=".csv" />
+            <div class="drop-icon">📄</div>
+            <div class="drop-label">CSV de puntos de carguío</div>
+            <div class="drop-hint">puntos_carguio_DD.MM.YYYY.csv</div>
+          </div>
+          <div class="file-list" id="list-csv"></div>
+        </div>
+
+        <div>
+          <div class="drop-zone" id="zone-dxf">
+            <input type="file" id="input-dxf" accept=".dxf" multiple />
+            <div class="drop-icon">🗺️</div>
+            <div class="drop-label">Archivos DXF</div>
+            <div class="drop-hint">Topografía base + EOP diarios (selección múltiple)</div>
+          </div>
+          <div class="file-list" id="list-dxf"></div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- PASO 3: MAPEO -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-num">3</div>
+      <h2>Mapeo polígonos → pala</h2>
+    </div>
+    <div class="card-body">
+      <p class="mapeo-hint">
+        Edita el JSON para asignar cada índice de polígono dentro de cada archivo DXF a su pala y fase.
+        El nombre del archivo debe coincidir exactamente con el DXF subido.
+      </p>
+      <textarea id="mapeo-json">{
+  "EOP_1_10__7_1_2026__SURF.dxf": {
+    "1": {"pala": "S06", "fase": "F06"},
+    "2": {"pala": "S01", "fase": "F06"},
+    "3": {"pala": "SH02", "fase": "F07"},
+    "4": {"pala": "S02", "fase": "F07"}
+  },
+  "EOP_1_11__7_1_2026_1__SURF.dxf": {
+    "1": {"pala": "S06", "fase": "F06"},
+    "2": {"pala": "S01", "fase": "F06"},
+    "3": {"pala": "SH01", "fase": "F07"},
+    "4": {"pala": "SH02", "fase": "F07"},
+    "5": {"pala": "S02", "fase": "F07"}
+  }
+}</textarea>
+    </div>
+  </div>
+
+  <!-- BOTÓN -->
+  <div style="display:flex;align-items:center;gap:16px;">
+    <button class="run-btn" id="btn-run" disabled>
+      <span id="btn-icon">▶</span>
+      <span id="btn-text">Calcular adherencia</span>
+    </button>
+    <span id="pyodide-status" style="font-size:12px;color:var(--muted)">Cargando entorno Python…</span>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <div class="card-header" style="cursor:pointer" onclick="document.getElementById('log').classList.toggle('hidden')">
+      <div class="step-num" style="border-color:var(--muted);color:var(--muted)">✦</div>
+      <h2>Consola</h2>
+    </div>
+    <div id="log"><span class="warn">⏳ Iniciando Pyodide y descargando librerías Python (~8 MB, solo la primera vez)…</span><br/></div>
+  </div>
+
+  <!-- RESULTADOS -->
+  <div class="card hidden" id="results-card">
+    <div class="card-header">
+      <div class="step-num" style="border-color:var(--accent2);color:var(--accent2)">✓</div>
+      <h2>Resultados de adherencia</h2>
+    </div>
+    <div class="card-body results-wrap">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th>Pala</th>
+            <th>Polígonos acumulados</th>
+            <th>Puntos carguío</th>
+            <th>Adherencia</th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- GRÁFICO -->
+  <div class="card hidden" id="plot-card">
+    <div class="card-header">
+      <div class="step-num" style="border-color:var(--accent2);color:var(--accent2)">✓</div>
+      <h2>Visualización espacial</h2>
+    </div>
+    <div class="card-body" style="padding:0">
+      <div id="plot-container"></div>
+    </div>
+  </div>
+
+</main>
+
+<script type="module">
+// ─── Utilidades UI ────────────────────────────────────────────────────────────
+const log = document.getElementById('log');
+function addLog(msg, cls = '') {
+  const line = document.createElement('span');
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  log.appendChild(line);
+  log.appendChild(document.createElement('br'));
+  log.scrollTop = log.scrollHeight;
+}
+
+function setBtn(loading) {
+  const btn = document.getElementById('btn-run');
+  const icon = document.getElementById('btn-icon');
+  const txt  = document.getElementById('btn-text');
+  if (loading) {
+    btn.disabled = true;
+    icon.innerHTML = '<div class="spinner"></div>';
+    txt.textContent = 'Procesando…';
+  } else {
+    btn.disabled = false;
+    icon.textContent = '▶';
+    txt.textContent = 'Calcular adherencia';
+  }
+}
+
+function pillarColor(i) {
+  const palette = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+                   '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+  return palette[i % palette.length];
+}
+
+// ─── File inputs ──────────────────────────────────────────────────────────────
+let csvFile  = null;
+let dxfFiles = {};  // name → File
+
+function refreshCsvList() {
+  const el = document.getElementById('list-csv');
+  el.innerHTML = '';
+  if (!csvFile) return;
+  el.innerHTML = `<div class="file-pill"><span class="dot"></span>${csvFile.name}</div>`;
+  checkReady();
+}
+
+function refreshDxfList() {
+  const el = document.getElementById('list-dxf');
+  el.innerHTML = '';
+  Object.keys(dxfFiles).forEach(name => {
+    el.innerHTML += `<div class="file-pill"><span class="dot"></span>${name}</div>`;
+  });
+  checkReady();
+}
+
+function checkReady() {
+  const ready = csvFile && Object.keys(dxfFiles).length > 0 && pyodideReady;
+  document.getElementById('btn-run').disabled = !ready;
+}
+
+document.getElementById('input-csv').addEventListener('change', e => {
+  if (e.target.files[0]) { csvFile = e.target.files[0]; refreshCsvList(); }
+});
+
+document.getElementById('input-dxf').addEventListener('change', e => {
+  Array.from(e.target.files).forEach(f => { dxfFiles[f.name] = f; });
+  refreshDxfList();
+});
+
+['zone-csv','zone-dxf'].forEach(id => {
+  const z = document.getElementById(id);
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('drag-over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('drag-over'));
+  z.addEventListener('drop', e => {
+    e.preventDefault(); z.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files);
+    if (id === 'zone-csv') {
+      const f = files.find(f => f.name.endsWith('.csv'));
+      if (f) { csvFile = f; refreshCsvList(); }
+    } else {
+      files.filter(f => f.name.endsWith('.dxf')).forEach(f => { dxfFiles[f.name] = f; });
+      refreshDxfList();
+    }
+  });
+});
+
+// ─── Pyodide bootstrap ────────────────────────────────────────────────────────
+let pyodide = null;
+let pyodideReady = false;
+
+async function readFileAsBytes(file) {
+  return new Uint8Array(await file.arrayBuffer());
+}
+
+async function initPyodide() {
+  const script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/pyodide/v0.27.0/full/pyodide.js';
+  document.head.appendChild(script);
+  await new Promise(r => script.onload = r);
+
+  addLog('▸ Pyodide descargado. Instalando paquetes Python…', 'warn');
+  pyodide = await loadPyodide();
+
+  await pyodide.loadPackage(['micropip', 'numpy', 'pandas']);
+  addLog('▸ numpy, pandas listos', 'ok');
+
+  const micropip = pyodide.pyimport('micropip');
+  await micropip.install(['shapely', 'pyproj', 'ezdxf']);
+  addLog('▸ shapely, pyproj, ezdxf instalados', 'ok');
+
+  pyodideReady = true;
+  document.getElementById('pyodide-status').textContent = 'Entorno Python listo ✓';
+  addLog('✓ Entorno listo. Sube archivos y pulsa Calcular.', 'ok');
+  checkReady();
+}
+
+initPyodide().catch(e => {
+  addLog('✗ Error cargando Pyodide: ' + e.message, 'err');
+});
+
+// ─── Python processing code ───────────────────────────────────────────────────
+const PYTHON_CODE = `
+import numpy as np
+import pandas as pd
+import math, io, re, json
+import ezdxf
+import shapely
+from shapely.geometry import Polygon, MultiPolygon
+from shapely.ops import unary_union
+from pyproj import Transformer
+import matplotlib.colors as mcolors
+
+# ── helpers ──────────────────────────────────────────────────────────────────
+def cerrar_poligono_robusto(vertices, tol=0.05):
+    if len(vertices) < 3: return None
+    coords = [(v[0], v[1]) for v in vertices]
+    p0, pN = np.array(coords[0]), np.array(coords[-1])
+    if np.linalg.norm(p0 - pN) > tol: coords.append(coords[0])
+    return coords
+
+def construir_geometria(lista_vertices):
+    polys = []
+    for verts in lista_vertices:
+        if not verts or len(verts) < 3: continue
+        p = Polygon(verts)
+        if not p.is_valid: p = p.buffer(0)
+        if not p.is_empty: polys.append(p)
+    return unary_union(polys) if polys else None
+
+def construir_solidos(df):
+    solidos = {}
+    for pala, grupo in df.groupby('pala'):
+        geom = construir_geometria(list(grupo['vertices']))
+        if geom and not geom.is_empty:
+            solidos[pala] = {'geom': geom, 'n_poligonos': len(grupo)}
+    return solidos
+
+def calcular_adherencia(geometria, xy, buffer_m=5.0):
+    xy = np.asarray(xy, dtype=float)
+    if len(xy) == 0: return float('nan')
+    geometria = geometria.buffer(buffer_m)
+    x, y = xy[:, 0], xy[:, 1]
+    dentro = shapely.covers(geometria, shapely.points(x, y))
+    return 100.0 * dentro.sum() / len(xy)
+
+def fecha_desde_nombre(nombre):
+    m = re.search(r'__(\\d+)_(\\d+)_(\\d+)(?:_\\d+)?__SURF', nombre)
+    if not m: return None
+    mes, dia, anio = int(m.group(1)), int(m.group(2)), int(m.group(3))
+    return pd.Timestamp(year=anio, month=mes, day=dia)
+
+def _anillos(geom):
+    if not geom or geom.is_empty: return []
+    polys = geom.geoms if isinstance(geom, MultiPolygon) else [geom]
+    out = []
+    for poly in polys:
+        out.append(np.array(poly.exterior.coords))
+        for h in poly.interiors: out.append(np.array(h.coords))
+    return out
+
+def oscurecer(hex_color, factor=0.6):
+    r, g, b = mcolors.hex2color(hex_color)
+    return mcolors.rgb2hex((r*factor, g*factor, b*factor))
+
+# ── main function ─────────────────────────────────────────────────────────────
+def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
+                 topo_name, buffer_m=5.0, angulo=-45):
+
+    fecha_limite = pd.Timestamp(fecha_str)
+    mapeo = {k: {int(i): v for i, v in vmap.items()}
+             for k, vmap in json.loads(mapeo_json_str).items()}
+
+    # ── topografía ────────────────────────────────────────────────────────────
+    segs_raw = []
+    CX, CY = None, None
+    if topo_name and topo_name in dxf_dict_bytes:
+        doc_topo = ezdxf.read(io.BytesIO(bytes(dxf_dict_bytes[topo_name])))
+        for e in doc_topo.modelspace():
+            if not e.dxf.layer.startswith('01_AVANCE'): continue
+            if e.dxftype() not in ('LWPOLYLINE','POLYLINE','LINE'): continue
+            try:
+                if e.dxftype() == 'LWPOLYLINE':
+                    pts = [(p[0], p[1]) for p in e.get_points()]
+                elif e.dxftype() == 'POLYLINE':
+                    pts = [(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
+                else:
+                    pts = [(e.dxf.start.x, e.dxf.start.y),(e.dxf.end.x, e.dxf.end.y)]
+                if len(pts) >= 2:
+                    arr = np.array(pts)
+                    if np.sum(np.linalg.norm(np.diff(arr,axis=0),axis=1)) >= 100:
+                        segs_raw.append(arr)
+            except: pass
+        if segs_raw:
+            all_pts = np.vstack(segs_raw)
+            CX, CY = all_pts[:,0].mean(), all_pts[:,1].mean()
+
+    def rotar(pts, cx=CX, cy=CY):
+        if cx is None: return np.array(pts)
+        arr = np.array(pts)
+        rad = math.radians(angulo)
+        dx, dy = arr[:,0]-cx, arr[:,1]-cy
+        return np.column_stack([
+            cx + dx*math.cos(rad) - dy*math.sin(rad),
+            cy + dx*math.sin(rad) + dy*math.cos(rad)
+        ])
+
+    # ── polígonos DXF ─────────────────────────────────────────────────────────
+    rows = []
+    for nombre, m_local in mapeo.items():
+        ts = fecha_desde_nombre(nombre)
+        if ts is None or ts > fecha_limite: continue
+        if nombre not in dxf_dict_bytes: continue
+        doc = ezdxf.read(io.BytesIO(bytes(dxf_dict_bytes[nombre])))
+        todos = []
+        for e in doc.modelspace():
+            if e.dxftype() == 'POLYLINE':
+                pts = [(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
+                if len(pts) >= 2:
+                    todos.append({'pts': pts, 'idx': len(todos)+1})
+        for p in todos:
+            if p['idx'] not in m_local: continue
+            asig = m_local[p['idx']]
+            verts = cerrar_poligono_robusto(p['pts'])
+            if verts: rows.append({'pala': asig['pala'], 'fase': asig['fase'], 'vertices': verts})
+
+    if not rows:
+        return None, "No se encontraron polígonos para la fecha/mapeo dado."
+
+    polygons = pd.DataFrame(rows)
+    solidos  = construir_solidos(polygons)
+
+    # ── puntos CSV ────────────────────────────────────────────────────────────
+    puntos = pd.read_csv(io.BytesIO(bytes(csv_bytes)), sep=';')
+    puntos = puntos[puntos['longitude'].notna() & puntos['latitude'].notna()].copy()
+
+    puntos['lon_wgs84'] = puntos['longitude'] / 3_600_000
+    puntos['lat_wgs84'] = puntos['latitude']  / 3_600_000
+    t = Transformer.from_crs(4326, 24879, always_xy=True)
+    puntos['x'], puntos['y'] = t.transform(puntos['lon_wgs84'].values, puntos['lat_wgs84'].values)
+
+    puntos['time_tripped'] = pd.to_datetime(puntos['time_tripped'])
+    puntos['time_tripped'] = puntos['time_tripped'].dt.tz_localize('UTC').dt.tz_convert('America/Santiago')
+    hora  = puntos['time_tripped'].dt.hour
+    fecha = puntos['time_tripped'].dt.date
+
+    puntos['date_op'] = np.select(
+        [hora < 8, (hora >= 8)&(hora < 20), hora >= 20],
+        [fecha - pd.Timedelta(days=1), fecha, fecha], default=pd.NaT)
+    puntos['turno'] = np.select([hora < 8,(hora>=8)&(hora<20),hora>=20],['B','A','B'],default=None)
+    puntos['date_op'] = pd.to_datetime(puntos['date_op'])
+    puntos = puntos.rename(columns={'elevation':'z'})
+    puntos['fase'] = 'F0' + puntos['fase'].str.extract(r'FASE\\s*(\\d)', expand=False).fillna('')
+    puntos = puntos[puntos['shovel'] != 'L01'].copy()
+
+    # outliers SH02
+    if 'SH01' in puntos['shovel'].values and 'SH02' in puntos['shovel'].values:
+        sh01_y_min = puntos[puntos['shovel']=='SH01']['y'].min()
+        mask = (puntos['shovel']=='SH02') & (puntos['y'] > sh01_y_min)
+        puntos = puntos[~mask].copy()
+
+    puntos_clean = puntos[
+        (puntos['date_op'] >= fecha_limite) &
+        (puntos['date_op'] <= fecha_limite)
+    ].reset_index(drop=True)
+
+    # ── adherencia ────────────────────────────────────────────────────────────
+    resultados = []
+    for pala, item in solidos.items():
+        sub = puntos_clean[puntos_clean['shovel'] == pala]
+        adh = calcular_adherencia(item['geom'], sub[['x','y']].to_numpy(), buffer_m=buffer_m)
+        resultados.append({'pala': pala, 'n_poligonos': item['n_poligonos'],
+                           'n_puntos': len(sub), 'adherencia': round(adh, 1)})
+
+    df_res = pd.DataFrame(resultados).sort_values('pala').reset_index(drop=True)
+
+    # ── datos para gráfico ────────────────────────────────────────────────────
+    palas_lista = sorted(set(polygons['pala']) | set(puntos_clean['shovel'].dropna()))
+    _tab10 = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+               '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf']
+    color_pala = {p: _tab10[i%10] for i,p in enumerate(palas_lista)}
+
+    topo_segs = []
+    for seg in segs_raw:
+        r = rotar(seg)
+        topo_segs.append({'x': r[:,0].tolist(), 'y': r[:,1].tolist()})
+
+    solidos_plot = []
+    for pala, item in solidos.items():
+        xs, ys = [], []
+        for ring in _anillos(item['geom']):
+            r = rotar(ring)
+            xs.extend(r[:,0].tolist() + [None])
+            ys.extend(r[:,1].tolist() + [None])
+        solidos_plot.append({'pala': pala, 'xs': xs, 'ys': ys, 'color': color_pala.get(pala,'#888')})
+
+    puntos_plot = []
+    for pala in palas_lista:
+        sub = puntos_clean[puntos_clean['shovel'] == pala]
+        if sub.empty: continue
+        pts_r = rotar(sub[['x','y']].to_numpy())
+        puntos_plot.append({'pala': pala, 'x': pts_r[:,0].tolist(), 'y': pts_r[:,1].tolist(),
+                            'color': color_pala.get(pala,'#888')})
+
+    resultado_final = {
+        'tabla': df_res.to_dict(orient='records'),
+        'topo_segs': topo_segs,
+        'solidos': solidos_plot,
+        'puntos': puntos_plot,
+        'buffer_m': buffer_m,
+        'fecha': fecha_str,
+        'n_poligonos_total': len(rows),
+        'n_puntos_total': len(puntos_clean),
+    }
+    import json as _json
+    return _json.dumps(resultado_final), None
+`;
+
+// ─── Run button ───────────────────────────────────────────────────────────────
+document.getElementById('btn-run').addEventListener('click', async () => {
+  setBtn(true);
+  document.getElementById('results-card').classList.add('hidden');
+  document.getElementById('plot-card').classList.add('hidden');
+
+  try {
+    const fecha = document.getElementById('fecha-input').value;
+    let mapeoStr;
+    try {
+      const parsed = JSON.parse(document.getElementById('mapeo-json').value);
+      mapeoStr = JSON.stringify(parsed);
+    } catch(e) {
+      addLog('✗ JSON del mapeo inválido: ' + e.message, 'err');
+      setBtn(false); return;
+    }
+
+    addLog(`▸ Leyendo ${Object.keys(dxfFiles).length} DXF y el CSV…`, 'warn');
+
+    // Read files as bytes
+    const csvBytes = new Uint8Array(await csvFile.arrayBuffer());
+    const dxfBytesMap = {};
+    for (const [name, file] of Object.entries(dxfFiles)) {
+      dxfBytesMap[name] = new Uint8Array(await file.arrayBuffer());
+    }
+
+    // Transfer to Pyodide
+    pyodide.globals.set('_csv_bytes', csvBytes);
+    pyodide.globals.set('_dxf_names', Object.keys(dxfBytesMap));
+    for (const [name, bytes] of Object.entries(dxfBytesMap)) {
+      pyodide.globals.set('_dxf_tmp_' + name.replace(/[^a-zA-Z0-9]/g,'_'), bytes);
+    }
+
+    // Build dxf_dict in Python
+    await pyodide.runPythonAsync(`
+_dxf_dict = {}
+for _n in _dxf_names:
+    _key = '_dxf_tmp_' + ''.join(c if c.isalnum() else '_' for c in _n)
+    _dxf_dict[_n] = globals()[_key]
+`);
+
+    // Detect topo file
+    const topoName = Object.keys(dxfBytesMap).find(n =>
+      !n.toUpperCase().startsWith('EOP')
+    ) || '';
+
+    pyodide.globals.set('_mapeo_json', mapeoStr);
+    pyodide.globals.set('_fecha', fecha);
+    pyodide.globals.set('_topo_name', topoName);
+
+    addLog('▸ Ejecutando análisis en Python…', 'warn');
+
+    await pyodide.runPythonAsync(PYTHON_CODE);
+
+    const result = await pyodide.runPythonAsync(`
+run_analysis(
+    csv_bytes    = _csv_bytes,
+    dxf_dict_bytes = _dxf_dict,
+    mapeo_json_str = _mapeo_json,
+    fecha_str    = _fecha,
+    topo_name    = _topo_name,
+    buffer_m     = 5.0,
+    angulo       = -45
+)
+`);
+
+    const [jsonStr, errMsg] = result.toJs({ dict_converter: Object.fromEntries });
+
+    if (errMsg) {
+      addLog('✗ Error: ' + errMsg, 'err');
+      setBtn(false); return;
+    }
+
+    const data = JSON.parse(jsonStr);
+    addLog(`✓ Análisis completado: ${data.n_poligonos_total} polígonos, ${data.n_puntos_total} puntos`, 'ok');
+
+    renderTabla(data.tabla);
+    renderPlot(data);
+
+    document.getElementById('results-card').classList.remove('hidden');
+    document.getElementById('plot-card').classList.remove('hidden');
+
+  } catch(e) {
+    addLog('✗ Error inesperado: ' + e.message, 'err');
+    console.error(e);
+  }
+
+  setBtn(false);
+});
+
+// ─── Render tabla ─────────────────────────────────────────────────────────────
+function renderTabla(tabla) {
+  const tbody = document.getElementById('results-body');
+  tbody.innerHTML = '';
+  const colores = ['#1f77b4','#ff7f0e','#2ca02c','#d62728','#9467bd',
+                   '#8c564b','#e377c2','#7f7f7f','#bcbd22','#17becf'];
+  const palas = [...new Set(tabla.map(r => r.pala))].sort();
+
+  tabla.forEach((row, i) => {
+    const color = colores[palas.indexOf(row.pala) % colores.length];
+    const adh = isNaN(row.adherencia) ? '—' : row.adherencia + '%';
+    const pct = isNaN(row.adherencia) ? 0 : row.adherencia;
+    const fillColor = pct >= 80 ? '#4fc3a1' : pct >= 60 ? '#e8a838' : '#e05c5c';
+
+    tbody.innerHTML += `
+      <tr>
+        <td><span class="pala-badge" style="color:${color};border-color:${color}">${row.pala}</span></td>
+        <td style="text-align:right">${row.n_poligonos}</td>
+        <td style="text-align:right">${row.n_puntos}</td>
+        <td>
+          <div class="adh-bar-wrap">
+            <div class="adh-bar"><div class="adh-fill" style="width:${pct}%;background:${fillColor}"></div></div>
+            <span style="font-weight:700;color:${fillColor};min-width:40px">${adh}</span>
+          </div>
+        </td>
+      </tr>`;
+  });
+}
+
+// ─── Render plot ──────────────────────────────────────────────────────────────
+function renderPlot(data) {
+  const traces = [];
+
+  // Topografía
+  if (data.topo_segs.length) {
+    const xT = [], yT = [];
+    data.topo_segs.forEach(s => { xT.push(...s.x, null); yT.push(...s.y, null); });
+    traces.push({ x: xT, y: yT, type: 'scattergl', mode: 'lines',
+      line: { color: '#3a3d4a', width: 0.8 }, showlegend: false, hoverinfo: 'skip' });
+  }
+
+  // Sólidos acumulados
+  data.solidos.forEach(s => {
+    traces.push({ x: s.xs, y: s.ys, type: 'scatter', mode: 'lines',
+      fill: 'toself', opacity: 0.25,
+      line: { color: s.color, width: 1 },
+      fillcolor: s.color, name: `${s.pala} (Sólido)` });
+  });
+
+  // Puntos
+  data.puntos.forEach(p => {
+    traces.push({ x: p.x, y: p.y, type: 'scattergl', mode: 'markers',
+      marker: { color: p.color, size: 4, opacity: 0.85 },
+      name: `${p.pala} (Pts)` });
+  });
+
+  Plotly.newPlot('plot-container', traces, {
+    title: { text: `Sólidos acumulados + Carguío · ${data.fecha}`, font: { color: '#e4e6f0', size: 13 } },
+    paper_bgcolor: '#1a1d27',
+    plot_bgcolor:  '#1a1d27',
+    font: { color: '#7a7f99' },
+    xaxis: { visible: false, scaleanchor: 'y' },
+    yaxis: { visible: false },
+    legend: { bgcolor: '#0f1117', bordercolor: '#2a2d3a', borderwidth: 1,
+              font: { color: '#e4e6f0', size: 11 } },
+    margin: { t: 48, r: 20, b: 20, l: 20 },
+  }, { responsive: true, displayModeBar: false });
+}
+</script>
+</body>
+</html>
