@@ -349,11 +349,25 @@
           <div class="drop-zone" id="zone-dxf">
             <input type="file" id="input-dxf" accept=".dxf" multiple />
             <div class="drop-icon">🗺️</div>
-            <div class="drop-label">Archivos DXF</div>
-            <div class="drop-hint">Topografía base + EOP diarios (selección múltiple)</div>
+            <div class="drop-label">Archivos EOP DXF</div>
+            <div class="drop-hint">Solo archivos EOP diarios (selección múltiple)</div>
           </div>
           <div class="file-list" id="list-dxf"></div>
         </div>
+
+      </div>
+
+      <div style="margin-top:16px">
+        <div class="drop-zone" id="zone-topo" style="max-width:400px">
+          <input type="file" id="input-topo" accept=".json" />
+          <div class="drop-icon">🏔️</div>
+          <div class="drop-label">JSON de topografía (opcional)</div>
+          <div class="drop-hint">rajo_simplificado.json — no se guarda en el servidor</div>
+        </div>
+        <div class="file-list" id="list-topo"></div>
+      </div>
+
+
 
       </div>
     </div>
@@ -476,6 +490,7 @@ function pillarColor(i) {
 // ─── File inputs ──────────────────────────────────────────────────────────────
 let csvFile  = null;
 let dxfFiles = {};  // name → File
+let topoJsonFile = null;  // JSON de topografía (opcional)
 
 function refreshCsvList() {
   const el = document.getElementById('list-csv');
@@ -498,6 +513,25 @@ function checkReady() {
   const ready = csvFile && Object.keys(dxfFiles).length > 0 && pyodideReady;
   document.getElementById('btn-run').disabled = !ready;
 }
+
+function refreshTopoList() {
+  const el = document.getElementById('list-topo');
+  el.innerHTML = '';
+  if (!topoJsonFile) return;
+  el.innerHTML = `<div class="file-pill"><span class="dot"></span>${topoJsonFile.name}</div>`;
+}
+
+document.getElementById('input-topo').addEventListener('change', e => {
+  if (e.target.files[0]) { topoJsonFile = e.target.files[0]; refreshTopoList(); }
+});
+
+document.getElementById('zone-topo').addEventListener('dragover', e => { e.preventDefault(); document.getElementById('zone-topo').classList.add('drag-over'); });
+document.getElementById('zone-topo').addEventListener('dragleave', () => document.getElementById('zone-topo').classList.remove('drag-over'));
+document.getElementById('zone-topo').addEventListener('drop', e => {
+  e.preventDefault(); document.getElementById('zone-topo').classList.remove('drag-over');
+  const f = Array.from(e.dataTransfer.files).find(f => f.name.endsWith('.json'));
+  if (f) { topoJsonFile = f; refreshTopoList(); }
+});
 
 document.getElementById('input-csv').addEventListener('change', e => {
   if (e.target.files[0]) { csvFile = e.target.files[0]; refreshCsvList(); }
@@ -625,35 +659,28 @@ def oscurecer(hex_color, factor=0.6):
 
 # ── main function ─────────────────────────────────────────────────────────────
 def run_analysis(csv_bytes, dxf_dict_bytes, mapeo_json_str, fecha_str,
-                 topo_name, buffer_m=5.0, angulo=-45):
+                 topo_json_str=None, buffer_m=5.0, angulo=-45):
 
     fecha_limite = pd.Timestamp(fecha_str)
     mapeo = {k: {int(i): v for i, v in vmap.items()}
              for k, vmap in json.loads(mapeo_json_str).items()}
 
-    # ── topografía ────────────────────────────────────────────────────────────
+# ── topografía desde JSON ─────────────────────────────────────────────────────
+    CX, CY = 409716.0, 7496728.0
+    ANGULO  = -45
+
     segs_raw = []
-    CX, CY = None, None
-    if topo_name and topo_name in dxf_dict_bytes:
-        doc_topo = ezdxf.read(io.BytesIO(bytes(dxf_dict_bytes[topo_name])))
-        for e in doc_topo.modelspace():
-            if not e.dxf.layer.startswith('01_AVANCE'): continue
-            if e.dxftype() not in ('LWPOLYLINE','POLYLINE','LINE'): continue
-            try:
-                if e.dxftype() == 'LWPOLYLINE':
-                    pts = [(p[0], p[1]) for p in e.get_points()]
-                elif e.dxftype() == 'POLYLINE':
-                    pts = [(v.dxf.location.x, v.dxf.location.y) for v in e.vertices]
-                else:
-                    pts = [(e.dxf.start.x, e.dxf.start.y),(e.dxf.end.x, e.dxf.end.y)]
-                if len(pts) >= 2:
-                    arr = np.array(pts)
-                    if np.sum(np.linalg.norm(np.diff(arr,axis=0),axis=1)) >= 100:
-                        segs_raw.append(arr)
-            except: pass
-        if segs_raw:
-            all_pts = np.vstack(segs_raw)
-            CX, CY = all_pts[:,0].mean(), all_pts[:,1].mean()
+    if topo_json_str:
+        topo_data = json.loads(topo_json_str)
+        lineas = topo_data.get('lineas', [])
+        ang_inv = math.radians(-ANGULO)
+        cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
+        for linea in lineas:
+            pts = np.array(linea, dtype=float)
+            # invertir rotación: coordenadas relativas → UTM real
+            x_utm = CX + pts[:,0]*cos_a - pts[:,1]*sin_a
+            y_utm = CY + pts[:,0]*sin_a + pts[:,1]*cos_a
+            segs_raw.append(np.column_stack([x_utm, y_utm]))
 
     def rotar(pts, cx=CX, cy=CY):
         if cx is None: return np.array(pts)
@@ -793,6 +820,12 @@ document.getElementById('btn-run').addEventListener('click', async () => {
       setBtn(false); return;
     }
 
+    // Read topo JSON if provided
+    let topoJsonStr = '';
+    if (topoJsonFile) {
+      topoJsonStr = await topoJsonFile.text();
+    }
+
     addLog(`▸ Leyendo ${Object.keys(dxfFiles).length} DXF y el CSV…`, 'warn');
 
     // Read files as bytes
@@ -817,14 +850,9 @@ for _n in _dxf_names:
     _dxf_dict[_n] = globals()[_key]
 `);
 
-    // Detect topo file
-    const topoName = Object.keys(dxfBytesMap).find(n =>
-      !n.toUpperCase().startsWith('EOP')
-    ) || '';
-
     pyodide.globals.set('_mapeo_json', mapeoStr);
     pyodide.globals.set('_fecha', fecha);
-    pyodide.globals.set('_topo_name', topoName);
+    pyodide.globals.set('_topo_json', topoJsonStr);
 
     addLog('▸ Ejecutando análisis en Python…', 'warn');
 
@@ -832,13 +860,13 @@ for _n in _dxf_names:
 
     const result = await pyodide.runPythonAsync(`
 run_analysis(
-    csv_bytes    = _csv_bytes,
+    csv_bytes      = _csv_bytes,
     dxf_dict_bytes = _dxf_dict,
     mapeo_json_str = _mapeo_json,
-    fecha_str    = _fecha,
-    topo_name    = _topo_name,
-    buffer_m     = 5.0,
-    angulo       = -45
+    fecha_str      = _fecha,
+    topo_json_str  = _topo_json if _topo_json else None,
+    buffer_m       = 5.0,
+    angulo         = -45
 )
 `);
 
