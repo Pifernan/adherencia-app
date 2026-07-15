@@ -94,10 +94,13 @@ async def analizar(
     csv_file:       UploadFile = File(...),
     poligonos_file: UploadFile = File(...),
     topo_file:      UploadFile = File(None),
-    fecha:          str        = Form(...),
+    fecha_inicio:   str        = Form(...),
+    fecha_fin:      str        = Form(...),
 ):
     try:
-        fecha_limite = pd.Timestamp(fecha).date()
+        fecha_inicio_dt = pd.Timestamp(fecha_inicio).date()
+        fecha_fin_dt    = pd.Timestamp(fecha_fin).date()
+        fecha_limite    = fecha_fin_dt  # polígonos acumulados hasta fecha fin
 
         # ── polígonos ──────────────────────────────────────────────────────
         data = json.loads(await poligonos_file.read())
@@ -105,7 +108,7 @@ async def analizar(
         solidos = construir_solidos(poligonos, fecha_limite)
 
         if not solidos:
-            return JSONResponse({"error": f"Sin polígonos hasta {fecha}"}, 400)
+            return JSONResponse({"error": f"Sin polígonos hasta {fecha_fin}"}, 400)
 
         # ── topografía ─────────────────────────────────────────────────────
         segs_topo = []
@@ -127,10 +130,9 @@ async def analizar(
 
         # Filtro temprano por fecha para reducir memoria
         puntos['_date_raw'] = pd.to_datetime(puntos['time_tripped']).dt.date
-        fecha_dt = pd.Timestamp(fecha).date()
         puntos = puntos[puntos['_date_raw'].between(
-            fecha_dt - pd.Timedelta(days=1),
-            fecha_dt + pd.Timedelta(days=1)
+            fecha_inicio_dt - pd.Timedelta(days=1),
+            fecha_fin_dt    + pd.Timedelta(days=1)
         )].drop(columns='_date_raw').copy()
 
         puntos['lon_wgs84'] = puntos['longitude'] / 3_600_000
@@ -166,7 +168,8 @@ async def analizar(
             ].copy()
 
         puntos_clean = puntos[
-            puntos['date_op'] == pd.Timestamp(fecha)
+            (puntos['date_op'] >= pd.Timestamp(fecha_inicio)) &
+            (puntos['date_op'] <= pd.Timestamp(fecha_fin))
         ].reset_index(drop=True)
 
         # ── adherencia ─────────────────────────────────────────────────────
@@ -220,7 +223,8 @@ async def analizar(
             'solidos':        solidos_plot,
             'puntos':         puntos_plot,
             'topo_segs':      segs_topo,
-            'fecha':          fecha,
+            'fecha_inicio':   fecha_inicio,
+            'fecha_fin':      fecha_fin,
             'n_puntos_total': len(puntos_clean),
         })
 
