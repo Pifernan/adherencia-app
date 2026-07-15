@@ -47,8 +47,10 @@ def construir_solidos(poligonos, fecha_limite):
         for verts in lista_verts:
             try:
                 g = Polygon(verts)
-                if not g.is_valid: g = g.buffer(0)
-                if not g.is_empty: geoms.append(g)
+                if not g.is_valid:
+                    g = g.buffer(0)
+                if not g.is_empty:
+                    geoms.append(g)
             except:
                 pass
         if geoms:
@@ -69,11 +71,23 @@ def anillos(geom):
 def calcular_adherencia(geom, xy):
     xy = np.asarray(xy, dtype=float)
     if len(xy) == 0:
-        return float('nan')
+        return None
     geom_buf = geom.buffer(BUFFER_M)
     x, y = xy[:,0], xy[:,1]
     dentro = shapely.contains_xy(geom_buf, x, y)
     return round(100.0 * dentro.sum() / len(xy), 1)
+
+def limpiar_json(obj):
+    """Elimina NaN e inf recursivamente para que JSON no falle."""
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, list):
+        return [limpiar_json(i) for i in obj]
+    if isinstance(obj, dict):
+        return {k: limpiar_json(v) for k, v in obj.items()}
+    return obj
 
 @app.post("/analizar")
 async def analizar(
@@ -110,6 +124,14 @@ async def analizar(
         raw = await csv_file.read()
         puntos = pd.read_csv(io.BytesIO(raw), sep=';')
         puntos = puntos[puntos['longitude'].notna() & puntos['latitude'].notna()].copy()
+
+        # Filtro temprano por fecha para reducir memoria
+        puntos['_date_raw'] = pd.to_datetime(puntos['time_tripped']).dt.date
+        fecha_dt = pd.Timestamp(fecha).date()
+        puntos = puntos[puntos['_date_raw'].between(
+            fecha_dt - pd.Timedelta(days=1),
+            fecha_dt + pd.Timedelta(days=1)
+        )].drop(columns='_date_raw').copy()
 
         puntos['lon_wgs84'] = puntos['longitude'] / 3_600_000
         puntos['lat_wgs84'] = puntos['latitude']  / 3_600_000
@@ -183,7 +205,8 @@ async def analizar(
         puntos_plot = []
         for pala in sorted(palas):
             sub = puntos_clean[puntos_clean['shovel'] == pala]
-            if sub.empty: continue
+            if sub.empty:
+                continue
             pts_r = rotar(sub[['x','y']].to_numpy())
             puntos_plot.append({
                 'pala': pala,
@@ -192,14 +215,16 @@ async def analizar(
                 'color': color_pala.get(pala, '#888')
             })
 
-        return {
-            'tabla':    tabla,
-            'solidos':  solidos_plot,
-            'puntos':   puntos_plot,
-            'topo_segs': segs_topo,
-            'fecha':    fecha,
+        resultado = limpiar_json({
+            'tabla':          tabla,
+            'solidos':        solidos_plot,
+            'puntos':         puntos_plot,
+            'topo_segs':      segs_topo,
+            'fecha':          fecha,
             'n_puntos_total': len(puntos_clean),
-        }
+        })
+
+        return resultado
 
     except Exception as e:
         import traceback
