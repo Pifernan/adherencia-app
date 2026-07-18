@@ -114,8 +114,6 @@ async def analizar(
         segs_topo = []
         if topo_file:
             topo = json.loads(await topo_file.read())
-            ang_inv = math.radians(ANGULO)
-            cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
             for linea in topo.get('lineas', []):
                 pts = np.array(linea, dtype=float)
                 # Coordenadas UTM reales — solo rotar para alinear con los sólidos
@@ -134,12 +132,14 @@ async def analizar(
             fecha_fin_dt    + pd.Timedelta(days=1)
         )].drop(columns='_date_raw').copy()
 
+        # Transformar coordenadas
         puntos['lon_wgs84'] = puntos['longitude'] / 3_600_000
         puntos['lat_wgs84'] = puntos['latitude']  / 3_600_000
         t = Transformer.from_crs(4326, 24879, always_xy=True)
         puntos['x'], puntos['y'] = t.transform(
             puntos['lon_wgs84'].values, puntos['lat_wgs84'].values)
 
+        # Cambiar a hora local
         puntos['time_tripped'] = (
             pd.to_datetime(puntos['time_tripped'])
             .dt.tz_localize('UTC')
@@ -148,6 +148,7 @@ async def analizar(
         hora      = puntos['time_tripped'].dt.hour
         fecha_col = puntos['time_tripped'].dt.date
 
+        # Calcular fecha operacional
         puntos['date_op'] = np.select(
             [hora < 8, (hora >= 8) & (hora < 20), hora >= 20],
             [fecha_col - pd.Timedelta(days=1), fecha_col, fecha_col],
@@ -156,16 +157,19 @@ async def analizar(
 
         if 'elevation' in puntos.columns:
             puntos = puntos.rename(columns={'elevation': 'z'})
+        # Ajuste nombre de fases
         puntos['fase'] = ('F0' +
             puntos['fase'].str.extract(r'FASE\s*(\d)', expand=False).fillna(''))
+        # Sacar puntos de L01
         puntos = puntos[puntos['shovel'] != 'L01'].copy()
 
-        if 'SH01' in puntos['shovel'].values and 'SH02' in puntos['shovel'].values:
-            sh01_y_min = puntos[puntos['shovel'] == 'SH01']['y'].min()
-            puntos = puntos[
-                ~((puntos['shovel'] == 'SH02') & (puntos['y'] > sh01_y_min))
-            ].copy()
+        # if 'SH01' in puntos['shovel'].values and 'SH02' in puntos['shovel'].values:
+        #     sh01_y_min = puntos[puntos['shovel'] == 'SH01']['y'].min()
+        #     puntos = puntos[
+        #         ~((puntos['shovel'] == 'SH02') & (puntos['y'] > sh01_y_min))
+        #     ].copy()
 
+        # Filtro de puntos por fecha de análisis
         puntos_clean = puntos[
             (puntos['date_op'] >= pd.Timestamp(fecha_inicio)) &
             (puntos['date_op'] <= pd.Timestamp(fecha_fin))
