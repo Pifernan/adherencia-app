@@ -78,12 +78,14 @@
 
   <!-- PASO 1 -->
   <div class="card">
-    <div class="card-header"><div class="step">1</div><h2>Fecha de análisis</h2></div>
+    <div class="card-header"><div class="step">1</div><h2>Período de análisis</h2></div>
     <div class="card-body">
       <div class="fecha-row">
-        <label>Día operacional</label>
-        <input type="date" id="fecha-input" value="2026-07-08"/>
-        <span style="font-size:12px;color:var(--muted)">Se usan todos los polígonos hasta esta fecha.</span>
+        <label>Fecha inicio</label>
+        <input type="date" id="fecha-inicio" value="2026-07-05"/>
+        <label style="margin-left:16px">Fecha fin</label>
+        <input type="date" id="fecha-fin" value="2026-07-08"/>
+        <span style="font-size:12px;color:var(--muted)">Puntos: rango completo. Polígonos: acumulados hasta fecha fin.</span>
       </div>
     </div>
   </div>
@@ -163,7 +165,7 @@
 
 <script>
 // ── Config ────────────────────────────────────────────────────────────────────
-const API = 'https://adherencia-app-web.onrender.com';  // ← cambiar por URL real de Render
+const API = 'https://adherencia-app-dev.onrender.com';  // ← cambiar por URL real de Render
 
 // ── Estado ────────────────────────────────────────────────────────────────────
 let csvFile = null, polFile = null, topoFile = null;
@@ -239,13 +241,19 @@ document.getElementById('btn-run').addEventListener('click', async () => {
   document.getElementById('results-card').classList.add('hidden');
   document.getElementById('plot-card').classList.add('hidden');
 
-  const fecha = document.getElementById('fecha-input').value;
+  const fechaInicio = document.getElementById('fecha-inicio').value;
+  const fechaFin    = document.getElementById('fecha-fin').value;
+  if (fechaInicio > fechaFin) {
+    addLog('✗ La fecha inicio debe ser anterior a la fecha fin', 'err');
+    setBtn(false); return;
+  }
   addLog('▸ Enviando archivos al servidor…', 'warn');
 
   const form = new FormData();
   form.append('csv_file',       csvFile);
   form.append('poligonos_file', polFile);
-  form.append('fecha',          fecha);
+  form.append('fecha_inicio', fechaInicio);
+  form.append('fecha_fin',    fechaFin);
   if (topoFile) form.append('topo_file', topoFile);
 
   // Mostrar banner de cold start después de 5s sin respuesta
@@ -264,8 +272,10 @@ document.getElementById('btn-run').addEventListener('click', async () => {
       addLog('✗ Error: ' + data.error, 'err');
       setBtn(false); return;
     }
-
+    
+    addLog('Debug: ' + JSON.stringify(Object.keys(data)), 'warn');
     addLog(`✓ ${data.n_puntos_total} puntos procesados`, 'ok');
+    if (!data.tabla) { addLog('✗ tabla undefined: ' + JSON.stringify(data), 'err'); setBtn(false); return; }
     renderTabla(data.tabla);
     renderPlot(data);
     document.getElementById('results-card').classList.remove('hidden');
@@ -325,7 +335,7 @@ function renderPlot(data) {
   }));
 
   Plotly.newPlot('plot-container', traces, {
-    title:{text:`Puntos de carguío en sólidos PM acumulado al ${data.fecha}`,font:{color:'#212121',size:13}},
+    title:{text:`Adherencia de carguío a PM acumulado. Periodo ${data.fecha_inicio} → ${data.fecha_fin}`,font:{color:'#212121',size:13}},
     paper_bgcolor:'#ffffff', plot_bgcolor:'#ffffff',
     font:{color:'#7a7f99'},
     xaxis:{visible:false,scaleanchor:'y'}, yaxis:{visible:false},
