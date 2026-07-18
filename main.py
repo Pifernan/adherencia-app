@@ -118,9 +118,8 @@ async def analizar(
             cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
             for linea in topo.get('lineas', []):
                 pts = np.array(linea, dtype=float)
-                x_utm = CX + pts[:,0]*cos_a - pts[:,1]*sin_a
-                y_utm = CY + pts[:,0]*sin_a + pts[:,1]*cos_a
-                seg = rotar(np.column_stack([x_utm, y_utm]))
+                # Coordenadas UTM reales — solo rotar para alinear con los sólidos
+                seg = rotar(pts)
                 segs_topo.append({'x': seg[:,0].tolist(), 'y': seg[:,1].tolist()})
 
         # ── puntos CSV ─────────────────────────────────────────────────────

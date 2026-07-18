@@ -320,7 +320,7 @@ function renderPlot(data) {
     const xT = [], yT = [];
     data.topo_segs.forEach(s => { xT.push(...s.x, null); yT.push(...s.y, null); });
     traces.push({ x:xT, y:yT, type:'scattergl', mode:'lines',
-      line:{color:'#3a3d4a',width:.8}, showlegend:false, hoverinfo:'skip' });
+      line:{color:'#c8d0d8',width:.6}, showlegend:false, hoverinfo:'skip' });
   }
 
   data.solidos.forEach(s => traces.push({
