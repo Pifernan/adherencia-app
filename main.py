@@ -118,10 +118,9 @@ async def analizar(
             cos_a, sin_a = math.cos(ang_inv), math.sin(ang_inv)
             for linea in topo.get('lineas', []):
                 pts = np.array(linea, dtype=float)
-                # El JSON ya viene rotado — solo sumar centroide para plotear
-                x_plot = CX + pts[:,0]
-                y_plot = CY + pts[:,1]
-                segs_topo.append({'x': x_plot.tolist(), 'y': y_plot.tolist()})
+                # Coordenadas UTM reales — solo rotar para alinear con los sólidos
+                seg = rotar(pts)
+                segs_topo.append({'x': seg[:,0].tolist(), 'y': seg[:,1].tolist()})
 
         # ── puntos CSV ─────────────────────────────────────────────────────
         raw = await csv_file.read()
