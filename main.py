@@ -129,8 +129,55 @@ async def analizar(
         puntos = pd.read_csv(io.BytesIO(raw), sep=sep, encoding='utf-8-sig')
         puntos = puntos[puntos['longitude'].notna() & puntos['latitude'].notna()].copy()
 
+        # ── parseo robusto de time_tripped ────────────────────────────────
+        # Origen real en BD: "2026-07-10 00:05:54.000".
+        # Para evitar que Excel destruya la columna, se recomienda exportar
+        # el tiempo como epoch (entero de segundos) o en un formato que Excel
+        # no reconozca como fecha (ej: 2026-07-10_00-05-54). Este parser acepta
+        # cualquiera de esas variantes y detecta si el archivo llegó corrupto.
+        def parse_tiempo(serie_raw):
+            s = serie_raw.astype(str).str.strip()
+
+            # --- Guardia: detectar corrupción de Excel ---
+            # Si Excel interpretó los timestamps como duración, quedan como
+            # "MM:SS.0" (sin fecha ni hora recuperable). No hay forma de
+            # reconstruir la fecha: se aborta con un mensaje claro.
+            corrupto = s.str.match(r'^\d{1,2}:\d{2}\.\d+$')
+            if corrupto.mean() > 0.5:
+                raise ValueError(
+                    "El CSV llegó con la columna de tiempo corrompida por Excel "
+                    "(valores tipo 'MM:SS.0', sin fecha). La información original "
+                    "no es recuperable. Exporta el tiempo como epoch (entero de "
+                    "segundos) o en formato AAAA-MM-DD_HH-MM-SS para que Excel no "
+                    "lo altere."
+                )
+
+            # --- Caso epoch: columna puramente numérica ---
+            num = pd.to_numeric(s, errors='coerce')
+            if num.notna().mean() > 0.95:
+                # segundos (~1.7e9) o milisegundos (~1.7e12) según magnitud
+                unidad = 'ms' if num.dropna().median() > 1e11 else 's'
+                return pd.to_datetime(num, unit=unidad, utc=True).dt.tz_localize(None)
+
+            # --- Caso formato con guiones bajos: AAAA-MM-DD_HH-MM-SS ---
+            guion_bajo = s.str.match(r'^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}')
+            if guion_bajo.all():
+                s = s.str.replace('_', ' ', regex=False)
+                s = s.str.replace(r'(\d{2}) (\d{2})-(\d{2})-(\d{2})',
+                                  r'\1 \2:\3:\4', regex=True)
+                return pd.to_datetime(s, format='mixed')
+
+            # --- Caso ISO inequívoco: AAAA-MM-DD ... ---
+            if s.str.match(r'^\d{4}-\d{2}-\d{2}').all():
+                return pd.to_datetime(s, format='mixed')
+
+            # --- Último recurso: formatos con "/" (día primero, config CL) ---
+            return pd.to_datetime(s, dayfirst=True, format='mixed')
+
+        puntos['time_tripped'] = parse_tiempo(puntos['time_tripped'])
+
         # Filtro temprano por fecha para reducir memoria
-        puntos['_date_raw'] = pd.to_datetime(puntos['time_tripped']).dt.date
+        puntos['_date_raw'] = puntos['time_tripped'].dt.date
         puntos = puntos[puntos['_date_raw'].between(
             fecha_inicio_dt - pd.Timedelta(days=1),
             fecha_fin_dt    + pd.Timedelta(days=1)
@@ -143,7 +190,7 @@ async def analizar(
             puntos['lon_wgs84'].values, puntos['lat_wgs84'].values)
 
         puntos['time_tripped'] = (
-            pd.to_datetime(puntos['time_tripped'])
+            puntos['time_tripped']
             .dt.tz_localize('UTC')
             .dt.tz_convert('America/Santiago')
         )
